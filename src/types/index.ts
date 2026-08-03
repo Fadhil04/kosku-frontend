@@ -38,14 +38,51 @@ export interface Room {
   } | null;
 }
 
+// Backend generate password sendiri, tidak butuh field password dari frontend
+// Tenant yang bisa muncul di list hanya yang sudah/pernah punya kontrak dengan owner ini
+export interface Tenant {
+  id: string;
+  email: string;
+  // Backend return camelCase karena Prisma field mapping
+  fullName?: string;
+  full_name?: string;
+  phoneNumber?: string;
+  phone_number?: string;
+  idCardNumber?: string;
+  id_card_number?: string;
+  emergencyContactName?: string;
+  emergency_contact_name?: string;
+  emergencyContactPhone?: string;
+  emergency_contact_phone?: string;
+  isActive?: boolean;
+  is_active?: boolean;
+  createdAt?: string;
+  created_at?: string;
+  active_contract?: {
+    id: string;
+    room: { room_number: string; property: { name: string } };
+  } | null;
+}
+
 export interface Contract {
   id: string;
   status: 'PENDING' | 'ACTIVE' | 'TERMINATED' | 'EXPIRED';
   start_date: string;
   end_date: string;
   monthly_rent: number;
-  tenant: { id: string; full_name: string; email: string };
-  room: { room_number: string; property: { name: string } };
+  deposit_amount: number;
+  deposit_status: 'UNPAID' | 'PAID' | 'REFUNDED';
+  billing_date: number;
+  notes?: string;
+  termination_date?: string;
+  termination_reason?: string;
+  created_at: string;
+  tenant: { id: string; full_name: string; email: string; phone_number?: string };
+  room: {
+    room_number: string;
+    property: { id: string; name: string };
+  };
+  _count?: { bills: number };
 }
 
 export interface Bill {

@@ -9,6 +9,7 @@ import {
   MessageSquare,
   BarChart3,
   LogOut,
+  ChevronRight,
 } from 'lucide-react';
 
 const navItems = [
@@ -25,43 +26,73 @@ export function Sidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
 
+  const initials = user?.full_name
+    ?.split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() ?? 'KO';
+
   return (
-    <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen fixed left-0 top-0">
-      {/* Logo */}
-      <div className="p-6 border-b border-slate-700">
-        <h1 className="text-xl font-bold text-white">KosKu</h1>
-        <p className="text-slate-400 text-sm mt-1 truncate">{user?.full_name}</p>
+    <aside className="w-64 bg-surface-container flex flex-col h-screen fixed left-0 top-0 border-r border-outline-variant z-40">
+      {/* Brand */}
+      <div className="px-5 py-5 border-b border-outline-variant">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <Building2 size={16} className="text-white" />
+          </div>
+          <div>
+            <p className="font-bold text-on-surface text-body-lg leading-tight">KosKu</p>
+            <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-wider">
+              Admin Portal
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map(({ path, label, icon: Icon }) => {
           const isActive = location.pathname.startsWith(path);
           return (
             <Link
               key={path}
               to={path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                isActive
-                  ? 'bg-slate-700 text-white font-medium'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
+              className={isActive ? 'nav-item-active' : 'nav-item-inactive'}
             >
-              <Icon size={18} />
-              {label}
+              <Icon size={17} className="shrink-0" />
+              <span className="flex-1">{label}</span>
+              {isActive && (
+                <ChevronRight size={14} className="opacity-60 shrink-0" />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Logout */}
-      <div className="p-4 border-t border-slate-700">
+      {/* User + Logout */}
+      <div className="px-3 py-4 border-t border-outline-variant space-y-1">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+          <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
+            <span className="font-mono text-label-sm text-primary-container font-bold">
+              {initials}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-body-sm font-semibold text-on-surface truncate">
+              {user?.full_name ?? 'Owner'}
+            </p>
+            <p className="font-mono text-label-sm text-on-surface-variant truncate">
+              {user?.email ?? ''}
+            </p>
+          </div>
+        </div>
         <button
           onClick={logout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-white w-full transition-colors"
+          className="nav-item-inactive w-full text-left"
         >
-          <LogOut size={18} />
-          Keluar
+          <LogOut size={17} className="shrink-0" />
+          <span>Keluar</span>
         </button>
       </div>
     </aside>

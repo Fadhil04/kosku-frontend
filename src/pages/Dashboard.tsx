@@ -1,46 +1,66 @@
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/reports';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import {
   Building2,
-  DoorOpen,
-  Receipt,
-  MessageSquare,
+  BedDouble,
   TrendingUp,
+  FileText,
   AlertTriangle,
+  MessageSquare,
+  Receipt,
+  CheckCircle2,
 } from 'lucide-react';
 
 function StatCard({
   title,
   value,
-  subtitle,
+  sub,
   icon: Icon,
-  color = 'text-slate-700',
+  accent = 'blue',
 }: {
   title: string;
   value: string | number;
-  subtitle?: string;
+  sub?: string;
   icon: React.ElementType;
-  color?: string;
+  accent?: 'blue' | 'green' | 'amber' | 'red';
 }) {
+  const iconBg = {
+    blue: 'bg-primary-fixed text-primary-container',
+    green: 'bg-secondary-container text-secondary',
+    amber: 'bg-tertiary-fixed text-tertiary-container',
+    red: 'bg-error-container text-error',
+  }[accent];
+
+  const valueCn = {
+    blue: 'text-primary',
+    green: 'text-secondary',
+    amber: 'text-tertiary-on-container',
+    red: 'text-error',
+  }[accent];
+
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-500">{title}</p>
-            <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-            {subtitle && (
-              <p className="text-xs text-slate-400 mt-1">{subtitle}</p>
-            )}
-          </div>
-          <div className="bg-slate-100 p-3 rounded-full">
-            <Icon size={20} className="text-slate-600" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="card p-5 flex items-start justify-between gap-4">
+      <div>
+        <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest mb-2">
+          {title}
+        </p>
+        <p className={`text-2xl font-bold tabular-nums ${valueCn}`}>{value}</p>
+        {sub && <p className="text-body-sm text-on-surface-variant mt-1">{sub}</p>}
+      </div>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+        <Icon size={18} />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="card p-5">
+      <div className="skeleton h-4 w-24 mb-3 rounded" />
+      <div className="skeleton h-7 w-16 rounded" />
+    </div>
   );
 }
 
@@ -48,159 +68,215 @@ export function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: reportsApi.getDashboard,
-    refetchInterval: 5 * 60 * 1000, // refresh tiap 5 menit
+    refetchInterval: 5 * 60 * 1000,
   });
 
-  if (isLoading) {
-    return (
-      <DashboardLayout>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="h-16 bg-slate-100 rounded animate-pulse" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  if (!data) return null;
-
   const formatRupiah = (n: number) =>
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
+    new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      maximumFractionDigits: 0,
+    }).format(n);
+
+  const now = new Date();
+  const monthName = now.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
-          <p className="text-slate-500 mt-1">Ringkasan semua properti kamu</p>
-        </div>
+    <DashboardLayout
+      title="Dashboard"
+      subtitle={`Ringkasan per ${monthName}`}
+    >
+      <div className="space-y-6 animate-fade-in">
+        {/* Stat cards */}
+        {isLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : data ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Total Properti"
+              value={data.total_properties}
+              icon={Building2}
+              accent="blue"
+            />
+            <StatCard
+              title="Total Kamar"
+              value={data.total_rooms}
+              sub={`${data.room_status?.['OCCUPIED'] ?? 0} kamar terisi`}
+              icon={BedDouble}
+              accent="blue"
+            />
+            <StatCard
+              title="Tingkat Hunian"
+              value={`${data.overall_occupancy_rate}%`}
+              sub={data.overall_occupancy_rate >= 80 ? 'Sangat baik' : 'Perlu ditingkatkan'}
+              icon={TrendingUp}
+              accent={data.overall_occupancy_rate >= 80 ? 'green' : 'amber'}
+            />
+            <StatCard
+              title="Kontrak Aktif"
+              value={data.total_active_contracts}
+              icon={FileText}
+              accent="blue"
+            />
+          </div>
+        ) : null}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Properti"
-            value={data.total_properties}
-            icon={Building2}
-          />
-          <StatCard
-            title="Total Kamar"
-            value={data.total_rooms}
-            subtitle={`Terisi: ${data.room_status['OCCUPIED'] || 0}`}
-            icon={DoorOpen}
-          />
-          <StatCard
-            title="Tingkat Hunian"
-            value={`${data.overall_occupancy_rate}%`}
-            icon={TrendingUp}
-            color={data.overall_occupancy_rate >= 80 ? 'text-green-600' : 'text-orange-500'}
-          />
-          <StatCard
-            title="Kontrak Aktif"
-            value={data.total_active_contracts}
-            icon={Receipt}
-          />
-        </div>
-
-        {/* Revenue + Alerts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Revenue + Alerts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
           {/* Revenue Card */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="text-base">Pendapatan Bulan Ini</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="lg:col-span-2 card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest">
+                  Pendapatan Bulan Ini
+                </p>
+                <p className="text-body-sm text-on-surface-variant mt-0.5">{monthName}</p>
+              </div>
+            </div>
+
+            {isLoading ? (
               <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-500">Total Tagihan</span>
-                  <span className="font-medium">
+                {[1,2,3].map(i => <div key={i} className="skeleton h-5 rounded" />)}
+              </div>
+            ) : data ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/50">
+                  <span className="text-body-md text-on-surface-variant">Total Tagihan</span>
+                  <span className="text-money text-on-surface text-body-md">
                     {formatRupiah(data.current_month_revenue.billed)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-500">Sudah Terkumpul</span>
-                  <span className="font-medium text-green-600">
+                <div className="flex justify-between items-center py-2 border-b border-outline-variant/50">
+                  <span className="text-body-md text-on-surface-variant">Sudah Terkumpul</span>
+                  <span className="text-money text-secondary font-semibold text-body-md">
                     {formatRupiah(data.current_month_revenue.collected)}
                   </span>
                 </div>
-                <div className="pt-2 border-t">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Collection Rate</span>
-                    <span className={`font-bold text-lg ${
+                <div>
+                  <div className="flex justify-between items-center mb-2.5">
+                    <span className="text-body-md font-semibold text-on-surface">Collection Rate</span>
+                    <span className={`text-money text-xl font-bold ${
                       data.current_month_revenue.collection_rate >= 90
-                        ? 'text-green-600'
+                        ? 'text-secondary'
                         : data.current_month_revenue.collection_rate >= 70
-                          ? 'text-orange-500'
-                          : 'text-red-600'
+                          ? 'text-tertiary-on-container'
+                          : 'text-error'
                     }`}>
                       {data.current_month_revenue.collection_rate}%
                     </span>
                   </div>
-                  {/* Progress bar */}
-                  <div className="mt-2 h-2 bg-slate-100 rounded-full">
+                  <div className="h-2 bg-surface-container-high rounded-full overflow-hidden">
                     <div
-                      className="h-2 bg-green-500 rounded-full transition-all"
-                      style={{ width: `${data.current_month_revenue.collection_rate}%` }}
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        data.current_month_revenue.collection_rate >= 90
+                          ? 'bg-secondary'
+                          : data.current_month_revenue.collection_rate >= 70
+                            ? 'bg-tertiary-on-container'
+                            : 'bg-error'
+                      }`}
+                      style={{ width: `${Math.min(data.current_month_revenue.collection_rate, 100)}%` }}
                     />
                   </div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            ) : null}
+          </div>
 
           {/* Alerts Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Perlu Perhatian</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="card p-6">
+            <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest mb-4">
+              Perlu Perhatian
+            </p>
+
+            {isLoading ? (
               <div className="space-y-3">
+                {[1,2,3].map(i => <div key={i} className="skeleton h-12 rounded-lg" />)}
+              </div>
+            ) : data ? (
+              <div className="space-y-2.5">
                 {data.overdue_bills > 0 && (
-                  <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg">
-                    <AlertTriangle size={16} className="text-red-500 shrink-0" />
+                  <div className="flex items-start gap-3 p-3 bg-error-container rounded-lg">
+                    <AlertTriangle size={15} className="text-error shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-red-700">
+                      <p className="text-body-sm font-semibold text-error-on-container">
                         {data.overdue_bills} tagihan terlambat
                       </p>
+                      <p className="text-body-sm text-error-on-container/70 mt-0.5">
+                        Perlu tindak lanjut segera
+                      </p>
                     </div>
                   </div>
                 )}
+
                 {data.open_complaints > 0 && (
-                  <div className="flex items-center gap-2 p-2 bg-orange-50 rounded-lg">
-                    <MessageSquare size={16} className="text-orange-500 shrink-0" />
+                  <div className="flex items-start gap-3 p-3 bg-tertiary-fixed rounded-lg">
+                    <MessageSquare size={15} className="text-tertiary-container shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-medium text-orange-700">
+                      <p className="text-body-sm font-semibold text-tertiary-container">
                         {data.open_complaints} komplain belum ditangani
                       </p>
-                    </div>
-                  </div>
-                )}
-                {data.contracts_expiring_30_days > 0 && (
-                  <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg">
-                    <Receipt size={16} className="text-blue-500 shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-700">
-                        {data.contracts_expiring_30_days} kontrak akan berakhir
+                      <p className="text-body-sm text-tertiary-container/70 mt-0.5">
+                        Penghuni menunggu respons
                       </p>
                     </div>
                   </div>
                 )}
-                {data.overdue_bills === 0 &&
-                  data.open_complaints === 0 &&
-                  data.contracts_expiring_30_days === 0 && (
-                    <p className="text-sm text-slate-500 text-center py-4">
-                      Semua berjalan lancar ✓
+
+                {data.contracts_expiring_30_days > 0 && (
+                  <div className="flex items-start gap-3 p-3 bg-primary-fixed rounded-lg">
+                    <Receipt size={15} className="text-primary-container shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-body-sm font-semibold text-primary-container">
+                        {data.contracts_expiring_30_days} kontrak akan berakhir
+                      </p>
+                      <p className="text-body-sm text-primary-container/70 mt-0.5">
+                        Dalam 30 hari ke depan
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {data && data.overdue_bills === 0 && data.open_complaints === 0 && data.contracts_expiring_30_days === 0 && (
+                  <div className="flex flex-col items-center justify-center py-6 gap-3 text-center">
+                    <CheckCircle2 size={32} className="text-secondary" />
+                    <p className="text-body-sm text-on-surface-variant">
+                      Semua berjalan lancar
                     </p>
-                  )}
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            ) : null}
+          </div>
         </div>
+
+        {/* Room status breakdown */}
+        {!isLoading && data && (
+          <div className="card p-6">
+            <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest mb-4">
+              Status Kamar
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { key: 'AVAILABLE', label: 'Tersedia', color: 'bg-secondary-container text-secondary' },
+                { key: 'OCCUPIED', label: 'Terisi', color: 'bg-primary-fixed text-primary-container' },
+                { key: 'RESERVED', label: 'Direservasi', color: 'bg-tertiary-fixed text-tertiary-container' },
+                { key: 'NEEDS_MAINTENANCE', label: 'Maintenance', color: 'bg-error-container text-error' },
+              ].map(({ key, label, color }) => (
+                <div key={key} className="bg-surface-container-low rounded-lg p-4 text-center">
+                  <p className={`text-2xl font-bold tabular-nums ${color.split(' ')[1]}`}>
+                    {data.room_status?.[key] ?? 0}
+                  </p>
+                  <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-wider mt-1">
+                    {label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );
