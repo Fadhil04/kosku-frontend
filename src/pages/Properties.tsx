@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { propertiesApi } from '../api/properties';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { useToast } from '../components/Toast';
 import {
   Building2,
   MapPin,
@@ -16,6 +17,7 @@ import {
 
 // ── Add Property Modal ───────────────────────────────────────────
 function AddPropertyModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { success, error: toastError } = useToast();
   const [form, setForm] = useState({
     name: '',
     address: '',
@@ -35,13 +37,13 @@ function AddPropertyModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     setError('');
     try {
       await propertiesApi.create(form);
+      success('Properti berhasil ditambahkan');
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      setError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || 'Gagal menambahkan properti',
-      );
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Gagal menambahkan properti';
+      setError(msg);
+      toastError(msg);
     } finally {
       setIsLoading(false);
     }

@@ -1,106 +1,231 @@
+// ────────────────────────────────────────────────────────────────
+// Semua type sudah disesuaikan dengan response backend (snake_case)
+// Backend Prisma camelCase sudah di-normalize di service layer
+// ────────────────────────────────────────────────────────────────
+
 export interface User {
   id: string;
   email: string;
   full_name: string;
   role: 'owner' | 'tenant';
+  phone_number?: string | null;
+  avatar_url?: string | null;
 }
 
 export interface Property {
   id: string;
+  owner_id: string;
   name: string;
   address: string;
   city: string;
   province: string;
+  postal_code?: string | null;
+  description?: string | null;
+  rules?: string | null;
+  facilities: string[];
+  photos: string[];
   is_active: boolean;
-  stats: {
-    total_rooms: number;
-    occupied_rooms: number;
-    available_rooms: number;
-    occupancy_rate: number;
-    unpaid_bills_count: number;
-    unpaid_bills_total: number;
-    contracts_expiring_30_days: number;
-  };
+  created_at: string;
+  updated_at: string;
+  stats: PropertyStats;
+  // Hanya ada di detail page
+  rooms?: RoomInProperty[];
 }
 
-export interface Room {
+export interface PropertyStats {
+  total_rooms: number;
+  occupied_rooms: number;
+  available_rooms: number;
+  reserved_rooms: number;
+  maintenance_rooms: number;
+  occupancy_rate: number;
+  unpaid_bills_count: number;
+  unpaid_bills_total: number;
+  // Hanya di detail
+  current_month_billed?: number;
+  current_month_collected?: number;
+  collection_rate?: number;
+  contracts_expiring_30_days?: number;
+}
+
+export interface RoomInProperty {
   id: string;
   room_number: string;
   floor: number | null;
   type: string;
   base_price: number;
-  status: 'AVAILABLE' | 'RESERVED' | 'OCCUPIED' | 'NEEDS_MAINTENANCE';
-  facilities: string[];
-  active_contract?: {
+  size_sqm: number | null;
+  status: RoomStatus;
+  facilities: unknown[];
+  notes: string | null;
+  active_contract: {
     id: string;
-    tenant: { full_name: string };
     end_date: string;
+    monthly_rent: number;
+    tenant: { id: string; full_name: string };
   } | null;
 }
 
-// Backend generate password sendiri, tidak butuh field password dari frontend
-// Tenant yang bisa muncul di list hanya yang sudah/pernah punya kontrak dengan owner ini
+export type RoomStatus = 'AVAILABLE' | 'RESERVED' | 'OCCUPIED' | 'NEEDS_MAINTENANCE';
+
+export interface Room {
+  id: string;
+  property_id: string;
+  room_number: string;
+  floor: number | null;
+  type: string;
+  size_sqm: number | null;
+  base_price: number;
+  status: RoomStatus;
+  facilities: unknown[];
+  photos?: unknown[];
+  notes: string | null;
+  created_at?: string;
+  updated_at?: string;
+  active_contract?: {
+    id: string;
+    start_date: string;
+    end_date: string;
+    monthly_rent: number;
+    tenant: { id: string; full_name: string; phone_number?: string | null };
+  } | null;
+  contracts?: ContractInRoom[];
+  stats?: {
+    total_contracts: number;
+    total_billed: number;
+    total_collected: number;
+    total_bills: number;
+  };
+}
+
+export interface ContractInRoom {
+  id: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  status: ContractStatus;
+  tenant: { id: string; full_name: string; email?: string | null; phone_number?: string | null };
+}
+
 export interface Tenant {
   id: string;
   email: string;
-  // Backend return camelCase karena Prisma field mapping
-  fullName?: string;
-  full_name?: string;
-  phoneNumber?: string;
-  phone_number?: string;
-  idCardNumber?: string;
-  id_card_number?: string;
-  emergencyContactName?: string;
-  emergency_contact_name?: string;
-  emergencyContactPhone?: string;
-  emergency_contact_phone?: string;
-  isActive?: boolean;
-  is_active?: boolean;
-  createdAt?: string;
-  created_at?: string;
+  full_name: string;
+  phone_number?: string | null;
+  id_card_number?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  is_active: boolean;
+  created_at: string;
   active_contract?: {
     id: string;
     room: { room_number: string; property: { name: string } };
   } | null;
+  // Hanya ada di detail
+  contracts?: TenantContract[];
 }
+
+export interface TenantContract {
+  id: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  status: ContractStatus;
+  room: { room_number: string; property: { name: string } };
+}
+
+export type ContractStatus = 'PENDING' | 'ACTIVE' | 'TERMINATED' | 'EXPIRED';
 
 export interface Contract {
   id: string;
-  status: 'PENDING' | 'ACTIVE' | 'TERMINATED' | 'EXPIRED';
+  room_id: string;
+  tenant_id: string;
+  owner_id: string;
   start_date: string;
   end_date: string;
   monthly_rent: number;
   deposit_amount: number;
   deposit_status: 'UNPAID' | 'PAID' | 'REFUNDED';
   billing_date: number;
-  notes?: string;
-  termination_date?: string;
-  termination_reason?: string;
+  additional_charges: unknown[];
+  status: ContractStatus;
+  termination_date?: string | null;
+  termination_reason?: string | null;
+  notes?: string | null;
   created_at: string;
-  tenant: { id: string; full_name: string; email: string; phone_number?: string };
-  room: {
-    room_number: string;
-    property: { id: string; name: string };
-  };
+  updated_at: string;
+  tenant: { id: string; full_name: string; email: string; phone_number?: string | null };
+  room: { room_number: string; property: { id: string; name: string } };
   _count?: { bills: number };
+  // Hanya ada di detail
+  bills?: ContractBill[];
 }
 
-export interface Bill {
+export interface ContractBill {
   id: string;
   period_month: number;
   period_year: number;
   due_date: string;
+  base_rent: number;
   total_amount: number;
+  discount_amount: number;
+  status: BillStatus;
+  paid_at?: string | null;
+  payments: { id: string; amount: number; payment_date: string }[];
+}
+
+export type BillStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'WAIVED';
+
+export interface Bill {
+  id: string;
+  contract_id: string;
+  tenant_id: string;
+  room_id: string;
+  property_id: string;
+  period_month: number;
+  period_year: number;
+  due_date: string;
+  base_rent: number;
+  additional_charges: unknown[];
+  discount_amount: number;
+  discount_reason?: string | null;
+  total_amount: number;
+  amount_after_discount: number;
+  /** = amount_after_discount — tidak ada denda, keputusan ada di owner */
   final_amount: number;
-  status: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'WAIVED';
-  tenant: { full_name: string };
+  status: BillStatus;
+  paid_at?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  tenant: { id: string; full_name: string; email?: string | null };
   room: { room_number: string };
-  property: { name: string };
-  late_fee_info: {
+  property: { id: string; name: string };
+  overdue_info: {
     days_overdue: number;
-    late_fee_amount: number;
     is_overdue: boolean;
   };
+  /** @deprecated use overdue_info */
+  late_fee_info: {
+    days_overdue: number;
+    is_overdue: boolean;
+    late_fee_amount: 0;
+    late_fee_percentage: 0;
+  };
+  payments?: Payment[];
+}
+
+export interface Payment {
+  id: string;
+  bill_id: string;
+  amount: number;
+  payment_method: string;
+  payment_date: string;
+  reference_number?: string | null;
+  proof_url?: string | null;
+  notes?: string | null;
+  recorded_by: string;
+  created_at: string;
 }
 
 export interface Complaint {

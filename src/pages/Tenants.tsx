@@ -1,39 +1,18 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { tenantsApi } from '../api/tenants';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { useToast } from '../components/Toast';
 import {
   Users, Plus, X, AlertCircle, Phone, Mail,
-  IdCard, UserCheck, Building2, Info,
+  IdCard, UserCheck, Building2, Info, ChevronRight, CheckCircle2,
 } from 'lucide-react';
 import type { Tenant } from '../types';
 
-// Helper — backend mungkin return camelCase atau snake_case
-function tenantName(t: Tenant): string {
-  return (t.full_name || t.fullName || '—') as string;
-}
-function tenantPhone(t: Tenant): string | undefined {
-  return (t.phone_number || t.phoneNumber) as string | undefined;
-}
-function tenantKtp(t: Tenant): string | undefined {
-  return (t.id_card_number || t.idCardNumber) as string | undefined;
-}
-function tenantActive(t: Tenant): boolean {
-  return (t.is_active ?? t.isActive ?? true) as boolean;
-}
-function tenantDate(t: Tenant): string | undefined {
-  return (t.created_at || t.createdAt) as string | undefined;
-}
-
-const fmtDate = (s?: string) => {
-  if (!s) return '—';
-  return new Date(s).toLocaleDateString('id-ID', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  });
-};
-
 // ── Add Tenant Modal ──────────────────────────────────────────────
-function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (tenantId?: string) => void }) {
+  const { success, error: toastError } = useToast();
   const [form, setForm] = useState({
     full_name: '',
     email: '',
@@ -53,7 +32,7 @@ function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     setIsLoading(true);
     setError('');
     try {
-      await tenantsApi.create({
+      const result = await tenantsApi.create({
         full_name: form.full_name,
         email: form.email,
         phone_number: form.phone_number || undefined,
@@ -61,13 +40,13 @@ function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
         emergency_contact_name: form.emergency_contact_name || undefined,
         emergency_contact_phone: form.emergency_contact_phone || undefined,
       });
-      onSuccess();
+      success('Penghuni berhasil ditambahkan, password dikirim via email');
+      onSuccess(result?.id);
       onClose();
     } catch (err: unknown) {
-      setError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Gagal menambahkan penghuni',
-      );
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Gagal menambahkan penghuni';
+      setError(msg);
+      toastError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -221,11 +200,11 @@ function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
 
 // ── Tenant Card ───────────────────────────────────────────────────
 function TenantCard({ tenant }: { tenant: Tenant }) {
-  const name = tenantName(tenant);
-  const phone = tenantPhone(tenant);
-  const ktp = tenantKtp(tenant);
-  const active = tenantActive(tenant);
-  const date = tenantDate(tenant);
+  const navigate = useNavigate();
+  const name = tenant.full_name;
+  const phone = tenant.phone_number;
+  const ktp = tenant.id_card_number;
+  const active = tenant.is_active;
   const activeContract = tenant.active_contract;
 
   const initials = name
@@ -236,7 +215,7 @@ function TenantCard({ tenant }: { tenant: Tenant }) {
     .toUpperCase();
 
   return (
-    <div className="card p-5 hover:shadow-card-hover transition-all">
+    <div className="card p-5 hover:shadow-card-hover transition-all flex flex-col">
       {/* Header */}
       <div className="flex items-start gap-3 mb-4">
         <div className="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
@@ -256,7 +235,7 @@ function TenantCard({ tenant }: { tenant: Tenant }) {
       </div>
 
       {/* Info */}
-      <div className="space-y-2">
+      <div className="space-y-2 flex-1">
         <div className="flex items-center gap-2 text-on-surface-variant">
           <Mail size={13} className="shrink-0" />
           <span className="text-body-sm truncate">{tenant.email}</span>
@@ -279,7 +258,7 @@ function TenantCard({ tenant }: { tenant: Tenant }) {
       {activeContract && (
         <div className="mt-3 flex items-center gap-2 px-2.5 py-2 bg-primary-fixed/50 rounded-lg">
           <Building2 size={13} className="text-primary-container shrink-0" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-body-sm font-medium text-primary-container truncate">
               {activeContract.room.property.name}
             </p>
@@ -290,11 +269,17 @@ function TenantCard({ tenant }: { tenant: Tenant }) {
         </div>
       )}
 
-      {/* Footer */}
-      <div className="mt-3 pt-3 border-t border-outline-variant/50">
+      {/* Footer — link ke detail */}
+      <div className="mt-3 pt-3 border-t border-outline-variant/50 flex items-center justify-between">
         <p className="text-body-sm text-on-surface-variant">
-          Bergabung {fmtDate(date)}
+          {new Date(tenant.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
+        <button
+          onClick={() => navigate(`/tenants/${tenant.id}`)}
+          className="flex items-center gap-1 text-body-sm text-primary hover:underline font-medium"
+        >
+          Detail <ChevronRight size={13} />
+        </button>
       </div>
     </div>
   );
@@ -323,7 +308,9 @@ function EmptyNoContract({ onAdd }: { onAdd: () => void }) {
 // ── Page ─────────────────────────────────────────────────────────
 export function TenantsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+  const [newTenantId, setNewTenantId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const { data, isLoading, isError } = useQuery({
@@ -429,10 +416,36 @@ export function TenantsPage() {
       {showModal && (
         <AddTenantModal
           onClose={() => setShowModal(false)}
-          onSuccess={() => {
+          onSuccess={(tenantId?: string) => {
             queryClient.invalidateQueries({ queryKey: ['tenants'] });
+            if (tenantId) setNewTenantId(tenantId);
           }}
         />
+      )}
+
+      {/* Prompt buat kontrak setelah tambah penghuni */}
+      {newTenantId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={() => setNewTenantId(null)} />
+          <div className="relative bg-white rounded-lg shadow-modal w-full max-w-sm animate-slide-up p-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 size={28} className="text-secondary" />
+            </div>
+            <h3 className="text-body-lg font-bold text-on-surface mb-2">Penghuni berhasil ditambahkan!</h3>
+            <p className="text-body-sm text-on-surface-variant mb-5">
+              Password sementara sudah dikirim via email. Mau langsung buatkan kontrak?
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setNewTenantId(null)} className="btn-secondary flex-1">Nanti</button>
+              <button
+                onClick={() => { setNewTenantId(null); navigate('/contracts'); }}
+                className="btn-primary flex-1"
+              >
+                Buat Kontrak
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

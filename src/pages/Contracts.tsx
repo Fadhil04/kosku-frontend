@@ -1,37 +1,47 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useToast } from '../components/Toast';
+import { Pagination } from '../components/Pagination';
 import { contractsApi } from '../api/contracts';
 import { tenantsApi } from '../api/tenants';
 import { propertiesApi } from '../api/properties';
 import { roomsApi } from '../api/room';
 import { DashboardLayout } from '../components/DashboardLayout';
 import {
-  FileText, Plus, X, AlertCircle, ChevronDown,
-  User, Building2, Clock,
+  FileText, Plus, X, AlertCircle, Calendar,
+  ChevronDown, User, Building2, Clock, ChevronRight,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { Contract, Property, Room, Tenant } from '../types';
 
-// ── Status config ────────────────────────────────────────────────
-const STATUS_CFG: Record<string, { label: string; cn: string }> = {
-  ACTIVE:     { label: 'Aktif',      cn: 'badge bg-secondary-container text-secondary-on-container' },
-  PENDING:    { label: 'Pending',    cn: 'badge bg-primary-fixed text-primary-container' },
-  TERMINATED: { label: 'Diterminasi', cn: 'badge bg-error-container text-error-on-container' },
-  EXPIRED:    { label: 'Berakhir',   cn: 'badge bg-surface-container text-on-surface-variant' },
-};
-
+// ── Helpers ──────────────────────────────────────────────────────
 const fmt = (n: number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 
-const fmtDate = (s: string) =>
-  new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDate = (s: string) => {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
-// ── Days remaining ────────────────────────────────────────────────
 function daysUntil(dateStr: string) {
-  return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 0;
+  return Math.ceil((d.getTime() - Date.now()) / 86400000);
 }
+
+// ── Status config ────────────────────────────────────────────────
+const STATUS_CFG: Record<string, { label: string; cn: string }> = {
+  ACTIVE:     { label: 'Aktif',       cn: 'badge bg-secondary-container text-secondary-on-container' },
+  PENDING:    { label: 'Pending',     cn: 'badge bg-primary-fixed text-primary-container' },
+  TERMINATED: { label: 'Diterminasi', cn: 'badge bg-error-container text-error-on-container' },
+  EXPIRED:    { label: 'Berakhir',    cn: 'badge bg-surface-container text-on-surface-variant' },
+};
 
 // ── Add Contract Modal ────────────────────────────────────────────
 function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+  const { success, error: toastError } = useToast();
   const [form, setForm] = useState({
     tenant_id: '',
     property_id: '',
@@ -46,22 +56,29 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { data: tenantsData } = useQuery({ queryKey: ['tenants-all'], queryFn: () => tenantsApi.getAll({ limit: 100 }) });
-  const { data: propertiesData } = useQuery({ queryKey: ['properties'], queryFn: propertiesApi.getAll });
+  const { data: tenantsData, isLoading: loadingTenants } = useQuery({
+    queryKey: ['tenants-all'],
+    queryFn: () => tenantsApi.getAll({ limit: 200 }),
+    staleTime: 0, // selalu ambil terbaru saat modal dibuka
+  });
+  const { data: propertiesData, isLoading: loadingProperties } = useQuery({
+    queryKey: ['properties'],
+    queryFn: propertiesApi.getAll,
+    staleTime: 0,
+  });
 
   const tenants: Tenant[] = tenantsData?.data ?? [];
   const properties: Property[] = propertiesData?.data ?? [];
 
   const { data: roomsData } = useQuery({
-    queryKey: ['rooms', form.property_id],
-    queryFn: () => roomsApi.getAll(form.property_id),
+    queryKey: ['rooms-available', form.property_id],
+    queryFn: () => roomsApi.getAvailable(form.property_id),
     enabled: !!form.property_id,
   });
-  const availableRooms = (roomsData?.data ?? []).filter((r: Room) => r.status === 'AVAILABLE');
+  const availableRooms: Room[] = roomsData ?? [];
 
-  // Auto-fill monthly_rent when room selected
   const onRoomChange = (roomId: string) => {
-    const room = availableRooms.find((r: Room) => r.id === roomId);
+    const room = availableRooms.find((r) => r.id === roomId);
     setForm((f) => ({
       ...f,
       room_id: roomId,
@@ -84,13 +101,13 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
         billing_date: Number(form.billing_date),
         notes: form.notes || undefined,
       });
+      success('Kontrak berhasil dibuat, tagihan otomatis digenerate');
       onSuccess();
       onClose();
     } catch (err: unknown) {
-      setError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          'Gagal membuat kontrak',
-      );
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Gagal membuat kontrak';
+      setError(msg);
+      toastError(msg);
     } finally {
       setIsLoading(false);
     }
@@ -105,14 +122,14 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div>
             <h2 className="text-headline-sm font-bold text-on-surface">Buat Kontrak Baru</h2>
             <p className="text-body-sm text-on-surface-variant mt-0.5">
-              Sistem akan otomatis generate semua tagihan
+              Tagihan bulanan akan digenerate otomatis
             </p>
           </div>
           <button onClick={onClose} className="btn-icon"><X size={18} /></button>
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+        <form id="contract-form" onSubmit={handleSubmit} className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
           {/* Tenant */}
           <div>
             <label className="label">Penghuni</label>
@@ -122,14 +139,23 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
                 value={form.tenant_id}
                 onChange={(e) => setForm((f) => ({ ...f, tenant_id: e.target.value }))}
                 required
+                disabled={loadingTenants}
               >
-                <option value="">Pilih penghuni...</option>
+                <option value="">
+                  {loadingTenants ? 'Memuat data penghuni...' : tenants.length === 0 ? 'Belum ada penghuni — tambah dulu di menu Penghuni' : 'Pilih penghuni...'}
+                </option>
                 {tenants.map((t) => (
                   <option key={t.id} value={t.id}>{t.full_name} — {t.email}</option>
                 ))}
               </select>
               <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none" />
             </div>
+            {!loadingTenants && tenants.length === 0 && (
+              <p className="text-body-sm text-error mt-1.5 flex items-center gap-1">
+                <AlertCircle size={13} />
+                Tambahkan penghuni dulu di menu <strong>Penghuni</strong> sebelum membuat kontrak.
+              </p>
+            )}
           </div>
 
           {/* Property */}
@@ -141,8 +167,11 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
                 value={form.property_id}
                 onChange={(e) => setForm((f) => ({ ...f, property_id: e.target.value, room_id: '' }))}
                 required
+                disabled={loadingProperties}
               >
-                <option value="">Pilih properti...</option>
+                <option value="">
+                  {loadingProperties ? 'Memuat data properti...' : 'Pilih properti...'}
+                </option>
                 {properties.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -153,19 +182,23 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
           {/* Room */}
           <div>
-            <label className="label">Kamar <span className="text-on-surface-variant font-normal">(hanya kamar tersedia)</span></label>
+            <label className="label">
+              Kamar <span className="text-on-surface-variant font-normal">
+                {form.property_id ? `(${availableRooms.length} tersedia)` : '(pilih properti dulu)'}
+              </span>
+            </label>
             <div className="relative">
               <select
                 className="input appearance-none pr-8"
                 value={form.room_id}
                 onChange={(e) => onRoomChange(e.target.value)}
                 required
-                disabled={!form.property_id}
+                disabled={!form.property_id || availableRooms.length === 0}
               >
                 <option value="">
-                  {form.property_id ? `${availableRooms.length} kamar tersedia` : 'Pilih properti dulu'}
+                  {!form.property_id ? 'Pilih properti dulu' : availableRooms.length === 0 ? 'Tidak ada kamar tersedia' : 'Pilih kamar...'}
                 </option>
-                {availableRooms.map((r: Room) => (
+                {availableRooms.map((r) => (
                   <option key={r.id} value={r.id}>
                     Kamar {r.room_number} — {r.type} — {fmt(r.base_price)}/bln
                   </option>
@@ -179,13 +212,23 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Tanggal Mulai</label>
-              <input type="date" className="input" value={form.start_date}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} required />
+              <input
+                type="date"
+                className="input"
+                value={form.start_date}
+                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
+                required
+              />
             </div>
             <div>
               <label className="label">Tanggal Selesai</label>
-              <input type="date" className="input" value={form.end_date}
-                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} required />
+              <input
+                type="date"
+                className="input"
+                value={form.end_date}
+                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))}
+                required
+              />
             </div>
           </div>
 
@@ -193,15 +236,24 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Harga Sewa/Bulan (Rp)</label>
-              <input type="number" className="input" placeholder="1500000"
+              <input
+                type="number"
+                className="input"
+                placeholder="1500000"
                 value={form.monthly_rent}
-                onChange={(e) => setForm((f) => ({ ...f, monthly_rent: e.target.value }))} required />
+                onChange={(e) => setForm((f) => ({ ...f, monthly_rent: e.target.value }))}
+                required
+              />
             </div>
             <div>
               <label className="label">Deposit (Rp) <span className="text-on-surface-variant font-normal">opsional</span></label>
-              <input type="number" className="input" placeholder="0"
+              <input
+                type="number"
+                className="input"
+                placeholder="0"
                 value={form.deposit_amount}
-                onChange={(e) => setForm((f) => ({ ...f, deposit_amount: e.target.value }))} />
+                onChange={(e) => setForm((f) => ({ ...f, deposit_amount: e.target.value }))}
+              />
             </div>
           </div>
 
@@ -225,8 +277,12 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
           {/* Notes */}
           <div>
             <label className="label">Catatan <span className="text-on-surface-variant font-normal">opsional</span></label>
-            <input className="input" placeholder="Catatan tambahan kontrak..."
-              value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+            <input
+              className="input"
+              placeholder="Catatan tambahan..."
+              value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            />
           </div>
 
           {error && (
@@ -245,14 +301,15 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
             form="contract-form"
             disabled={isLoading}
             className="btn-primary flex-1"
-            onClick={(e) => { e.preventDefault(); handleSubmit(e as unknown as React.FormEvent); }}
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Membuat...
               </span>
-            ) : 'Buat Kontrak'}
+            ) : (
+              <><Plus size={15} />Buat Kontrak</>
+            )}
           </button>
         </div>
       </div>
@@ -262,6 +319,7 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 
 // ── Contract Row ──────────────────────────────────────────────────
 function ContractRow({ contract }: { contract: Contract }) {
+  const navigate = useNavigate();
   const cfg = STATUS_CFG[contract.status] ?? STATUS_CFG.PENDING;
   const days = daysUntil(contract.end_date);
   const isExpiringSoon = contract.status === 'ACTIVE' && days > 0 && days <= 30;
@@ -290,12 +348,19 @@ function ContractRow({ contract }: { contract: Contract }) {
         </div>
       </td>
       <td>
-        <p className="text-money text-on-surface">{fmt(contract.monthly_rent)}<span className="text-on-surface-variant font-normal font-sans text-body-sm">/bln</span></p>
+        {/* monthly_rent sekarang sudah number karena backend sudah normalize */}
+        <p className="text-money text-on-surface">
+          {fmt(contract.monthly_rent)}
+          <span className="text-on-surface-variant font-normal font-sans text-body-sm">/bln</span>
+        </p>
       </td>
       <td>
-        <div className="text-body-sm text-on-surface-variant space-y-0.5">
-          <p>{fmtDate(contract.start_date)}</p>
-          <p className="text-body-sm text-on-surface-variant">s/d {fmtDate(contract.end_date)}</p>
+        <div className="flex items-center gap-1.5 text-body-sm text-on-surface-variant">
+          <Calendar size={13} className="shrink-0" />
+          <div>
+            <p>{fmtDate(contract.start_date)}</p>
+            <p>s/d {fmtDate(contract.end_date)}</p>
+          </div>
         </div>
       </td>
       <td>
@@ -315,6 +380,14 @@ function ContractRow({ contract }: { contract: Contract }) {
           )}
         </div>
       </td>
+      <td>
+        <button
+          onClick={() => navigate(`/contracts/${contract.id}`)}
+          className="flex items-center gap-1 text-body-sm text-primary hover:underline font-medium"
+        >
+          Detail <ChevronRight size={13} />
+        </button>
+      </td>
     </tr>
   );
 }
@@ -323,11 +396,12 @@ function ContractRow({ contract }: { contract: Contract }) {
 export function ContractsPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['contracts', statusFilter],
-    queryFn: () => contractsApi.getAll({ status: statusFilter || undefined }),
+    queryKey: ['contracts', statusFilter, page],
+    queryFn: () => contractsApi.getAll({ status: statusFilter || undefined, page, limit: 20 }),
   });
 
   const contracts: Contract[] = data?.data ?? [];
@@ -369,17 +443,16 @@ export function ContractsPage() {
         {!isLoading && contracts.length > 0 && (
           <div className="flex items-center gap-2.5 mb-5 flex-wrap">
             {[
-              { key: 'ACTIVE',     label: 'Aktif',      cn: 'bg-secondary-container text-secondary-on-container' },
-              { key: 'PENDING',    label: 'Pending',     cn: 'bg-primary-fixed text-primary-container' },
-              { key: 'TERMINATED', label: 'Diterminasi', cn: 'bg-error-container text-error-on-container' },
-              { key: 'EXPIRED',    label: 'Berakhir',    cn: 'bg-surface-container text-on-surface-variant' },
+              { key: 'ACTIVE',     label: 'Aktif',       cn: 'bg-secondary-container text-secondary-on-container' },
+              { key: 'PENDING',    label: 'Pending',      cn: 'bg-primary-fixed text-primary-container' },
+              { key: 'TERMINATED', label: 'Diterminasi',  cn: 'bg-error-container text-error-on-container' },
+              { key: 'EXPIRED',    label: 'Berakhir',     cn: 'bg-surface-container text-on-surface-variant' },
             ].map(({ key, label, cn }) =>
               counts[key] ? (
                 <button
                   key={key}
                   onClick={() => setStatusFilter(statusFilter === key ? '' : key)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-body-sm font-medium transition-all ${cn} ${statusFilter === key ? 'ring-2 ring-offset-1 ring-current' : 'opacity-75 hover:opacity-100'}`}
-                >
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-body-sm font-medium transition-all ${cn} ${statusFilter === key ? 'ring-2 ring-offset-1 ring-current' : 'opacity-75 hover:opacity-100'}`}>
                   <span className="font-mono font-bold tabular-nums">{counts[key]}</span>
                   {label}
                 </button>
@@ -415,10 +488,11 @@ export function ContractsPage() {
                 <thead>
                   <tr>
                     <th>Penghuni</th>
-                    <th>Properti & Kamar</th>
+                    <th>Properti &amp; Kamar</th>
                     <th>Harga Sewa</th>
                     <th>Periode</th>
                     <th>Status</th>
+                    <th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -428,6 +502,17 @@ export function ContractsPage() {
                 </tbody>
               </table>
             </div>
+            {data?.meta && (
+              <div className="px-4 pb-2">
+                <Pagination
+                  page={page}
+                  totalPages={data.meta.totalPages}
+                  total={data.meta.total}
+                  limit={20}
+                  onPageChange={setPage}
+                />
+              </div>
+            )}
           </div>
         )}
       </DashboardLayout>
@@ -438,6 +523,8 @@ export function ContractsPage() {
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['contracts'] });
             queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['bills'] });
+            queryClient.invalidateQueries({ queryKey: ['properties'] });
           }}
         />
       )}

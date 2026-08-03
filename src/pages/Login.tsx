@@ -84,7 +84,7 @@ export function LoginPage() {
           <div className="mb-8">
             <h2 className="text-headline-md text-on-surface font-bold">Masuk ke akun</h2>
             <p className="text-on-surface-variant text-body-md mt-1">
-              Gunakan kredensial owner kamu
+              Belum punya akun? <a href="/register" className="text-primary font-medium hover:underline">Daftar di sini</a>
             </p>
           </div>
 

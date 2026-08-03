@@ -2,7 +2,7 @@ import { apiClient } from '../lib/axios';
 import type { ApiResponse, Contract } from '../types';
 
 export const contractsApi = {
-  getAll: async (params?: { status?: string; property_id?: string }) => {
+  getAll: async (params?: { status?: string; property_id?: string; page?: number; limit?: number }) => {
     const res = await apiClient.get<ApiResponse<Contract[]>>('/contracts', { params });
     return res.data;
   },

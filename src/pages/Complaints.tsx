@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { complaintsApi } from '../api/complaints';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { MessageSquare, X, AlertCircle, ArrowRight, Clock, MessageCircle } from 'lucide-react';
@@ -149,9 +150,11 @@ function UpdateStatusModal({
 function ComplaintCard({
   complaint,
   onAction,
+  onDetail,
 }: {
   complaint: Complaint;
   onAction: (c: Complaint) => void;
+  onDetail: (id: string) => void;
 }) {
   const priority = PRIORITY_CONFIG[complaint.priority] ?? PRIORITY_CONFIG.MEDIUM;
   const status = STATUS_CONFIG[complaint.status] ?? STATUS_CONFIG.OPEN;
@@ -197,7 +200,13 @@ function ComplaintCard({
       </div>
 
       {/* Action */}
-      <div className="shrink-0">
+      <div className="shrink-0 flex flex-col gap-2 items-end">
+        <button
+          onClick={() => onDetail(complaint.id)}
+          className="btn-ghost btn-sm"
+        >
+          Detail
+        </button>
         {canAct ? (
           <button
             onClick={() => onAction(complaint)}
@@ -205,11 +214,7 @@ function ComplaintCard({
           >
             {NEXT_ACTION_LABEL[complaint.status]}
           </button>
-        ) : (
-          <span className="font-mono text-label-sm text-on-surface-variant/50 uppercase tracking-widest">
-            closed
-          </span>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -217,6 +222,7 @@ function ComplaintCard({
 
 // ── Page ─────────────────────────────────────────────────────────
 export function ComplaintsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('');
   const [selected, setSelected] = useState<Complaint | null>(null);
@@ -313,7 +319,7 @@ export function ComplaintsPage() {
         ) : (
           <div className="space-y-3 animate-fade-in">
             {complaints.map((c) => (
-              <ComplaintCard key={c.id} complaint={c} onAction={setSelected} />
+              <ComplaintCard key={c.id} complaint={c} onAction={setSelected} onDetail={(id) => navigate(`/complaints/${id}`)} />
             ))}
           </div>
         )}
@@ -325,6 +331,7 @@ export function ComplaintsPage() {
           onClose={() => setSelected(null)}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['complaints'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
             setSelected(null);
           }}
         />

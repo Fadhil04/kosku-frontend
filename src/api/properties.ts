@@ -18,8 +18,26 @@ export const propertiesApi = {
     city: string;
     province: string;
     postal_code?: string;
+    description?: string;
+    rules?: string;
   }) => {
     const res = await apiClient.post<ApiResponse<Property>>('/properties', data);
+    return res.data.data;
+  },
+
+  update: async (
+    id: string,
+    data: {
+      name?: string;
+      address?: string;
+      city?: string;
+      province?: string;
+      postal_code?: string;
+      description?: string;
+      rules?: string;
+    },
+  ) => {
+    const res = await apiClient.put<ApiResponse<Property>>(`/properties/${id}`, data);
     return res.data.data;
   },
 };

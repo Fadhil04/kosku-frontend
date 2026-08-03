@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   LayoutDashboard,
@@ -24,6 +24,7 @@ const navItems = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const initials = user?.full_name
@@ -72,13 +73,16 @@ export function Sidebar() {
 
       {/* User + Logout */}
       <div className="px-3 py-4 border-t border-outline-variant space-y-1">
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+        <button
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full hover:bg-surface-container-high transition-colors"
+        >
           <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
             <span className="font-mono text-label-sm text-primary-container font-bold">
               {initials}
             </span>
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 text-left">
             <p className="text-body-sm font-semibold text-on-surface truncate">
               {user?.full_name ?? 'Owner'}
             </p>
@@ -86,11 +90,8 @@ export function Sidebar() {
               {user?.email ?? ''}
             </p>
           </div>
-        </div>
-        <button
-          onClick={logout}
-          className="nav-item-inactive w-full text-left"
-        >
+        </button>
+        <button onClick={logout} className="nav-item-inactive w-full text-left">
           <LogOut size={17} className="shrink-0" />
           <span>Keluar</span>
         </button>

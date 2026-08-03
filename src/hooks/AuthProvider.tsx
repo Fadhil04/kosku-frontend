@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { authApi } from "../api/auth";
+import { apiClient } from "../lib/axios";
 import { AuthContext } from "./auth-context";
 import type { User } from "../types";
 
@@ -13,7 +14,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       authApi
         .getProfile()
-        .then(setUser)
+        .then((user) => {
+          setUser(user);
+          // Backfill tenant lama yang belum punya createdByOwnerId
+          if (user.role === 'owner') {
+            apiClient.post('/admin/backfill/tenant-owner').catch(() => {});
+          }
+        })
         .catch(() => localStorage.clear())
         .finally(() => setIsLoading(false));
     } else {
@@ -31,6 +38,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("access_token", data.access_token);
     localStorage.setItem("refresh_token", data.refresh_token);
     setUser(data.user);
+
+    // Backfill createdByOwnerId untuk tenant lama yang belum punya
+    // Dipanggil sekali setelah login, aman diulang (idempotent)
+    if (role === 'owner') {
+      apiClient.post('/admin/backfill/tenant-owner').catch(() => {
+        // Bukan operasi kritis — gagal tidak masalah
+      });
+    }
   };
 
   const logout = async () => {

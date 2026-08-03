@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/reports';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { Link } from 'react-router-dom';
+import { OnboardingBanner } from '../components/OnboardingBanner';
 import {
   Building2,
   BedDouble,
@@ -68,7 +70,10 @@ export function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: reportsApi.getDashboard,
-    refetchInterval: 5 * 60 * 1000,
+    // Refresh setiap 2 menit dan saat window refocus
+    staleTime: 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
+    refetchOnWindowFocus: true,
   });
 
   const formatRupiah = (n: number) =>
@@ -87,6 +92,9 @@ export function DashboardPage() {
       subtitle={`Ringkasan per ${monthName}`}
     >
       <div className="space-y-6 animate-fade-in">
+        {/* Onboarding untuk owner baru */}
+        {!isLoading && data && data.total_properties === 0 && <OnboardingBanner />}
+
         {/* Stat cards */}
         {isLoading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -198,21 +206,21 @@ export function DashboardPage() {
             ) : data ? (
               <div className="space-y-2.5">
                 {data.overdue_bills > 0 && (
-                  <div className="flex items-start gap-3 p-3 bg-error-container rounded-lg">
+                  <Link to="/bills?status=UNPAID" className="flex items-start gap-3 p-3 bg-error-container rounded-lg hover:opacity-90 transition-opacity">
                     <AlertTriangle size={15} className="text-error shrink-0 mt-0.5" />
                     <div>
                       <p className="text-body-sm font-semibold text-error-on-container">
-                        {data.overdue_bills} tagihan terlambat
+                        {data.overdue_bills} tagihan melewati jatuh tempo
                       </p>
                       <p className="text-body-sm text-error-on-container/70 mt-0.5">
-                        Perlu tindak lanjut segera
+                        Perlu tindak lanjut — klik untuk lihat
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 )}
 
                 {data.open_complaints > 0 && (
-                  <div className="flex items-start gap-3 p-3 bg-tertiary-fixed rounded-lg">
+                  <Link to="/complaints?status=OPEN" className="flex items-start gap-3 p-3 bg-tertiary-fixed rounded-lg hover:opacity-90 transition-opacity">
                     <MessageSquare size={15} className="text-tertiary-container shrink-0 mt-0.5" />
                     <div>
                       <p className="text-body-sm font-semibold text-tertiary-container">
@@ -222,11 +230,11 @@ export function DashboardPage() {
                         Penghuni menunggu respons
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 )}
 
                 {data.contracts_expiring_30_days > 0 && (
-                  <div className="flex items-start gap-3 p-3 bg-primary-fixed rounded-lg">
+                  <Link to="/contracts?status=ACTIVE" className="flex items-start gap-3 p-3 bg-primary-fixed rounded-lg hover:opacity-90 transition-opacity">
                     <Receipt size={15} className="text-primary-container shrink-0 mt-0.5" />
                     <div>
                       <p className="text-body-sm font-semibold text-primary-container">
@@ -236,7 +244,7 @@ export function DashboardPage() {
                         Dalam 30 hari ke depan
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 )}
 
                 {data && data.overdue_bills === 0 && data.open_complaints === 0 && data.contracts_expiring_30_days === 0 && (

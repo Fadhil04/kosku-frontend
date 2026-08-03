@@ -24,4 +24,18 @@ export const tenantsApi = {
     const res = await apiClient.post<ApiResponse<Tenant>>('/tenants', data);
     return res.data.data;
   },
+
+  update: async (
+    id: string,
+    data: {
+      full_name?: string;
+      phone_number?: string;
+      id_card_number?: string;
+      emergency_contact_name?: string;
+      emergency_contact_phone?: string;
+    },
+  ) => {
+    const res = await apiClient.put<ApiResponse<Tenant>>(`/tenants/${id}`, data);
+    return res.data.data;
+  },
 };

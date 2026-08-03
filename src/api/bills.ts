@@ -2,7 +2,7 @@ import { apiClient } from '../lib/axios';
 import type { ApiResponse, Bill } from '../types';
 
 export const billsApi = {
-  getAll: async (params?: { status?: string; property_id?: string }) => {
+  getAll: async (params?: { status?: string; property_id?: string; page?: number; limit?: number }) => {
     const res = await apiClient.get<ApiResponse<Bill[]>>('/bills', { params });
     return res.data;
   },
@@ -17,6 +17,11 @@ export const billsApi = {
     return res.data.data;
   },
 
+  getPayments: async (billId: string) => {
+    const res = await apiClient.get(`/bills/${billId}/payments`);
+    return res.data.data;
+  },
+
   recordPayment: async (
     billId: string,
     data: {
@@ -28,6 +33,19 @@ export const billsApi = {
     },
   ) => {
     const res = await apiClient.post(`/bills/${billId}/payments`, data);
+    return res.data.data;
+  },
+
+  applyDiscount: async (
+    billId: string,
+    data: { discount_amount: number; discount_reason: string },
+  ) => {
+    const res = await apiClient.patch(`/bills/${billId}/discount`, data);
+    return res.data.data;
+  },
+
+  waiveBill: async (billId: string, data: { reason: string }) => {
+    const res = await apiClient.patch(`/bills/${billId}/waive`, data);
     return res.data.data;
   },
 };
