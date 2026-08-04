@@ -33,12 +33,12 @@ function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
     setError('');
     try {
       const result = await tenantsApi.create({
-        full_name: form.full_name,
-        email: form.email,
-        phone_number: form.phone_number || undefined,
-        id_card_number: form.id_card_number || undefined,
-        emergency_contact_name: form.emergency_contact_name || undefined,
-        emergency_contact_phone: form.emergency_contact_phone || undefined,
+        full_name: form.full_name.trim(),
+        email: form.email.trim(),
+        phone_number: form.phone_number?.trim() || undefined,
+        id_card_number: form.id_card_number?.trim() || undefined,
+        emergency_contact_name: form.emergency_contact_name?.trim() || undefined,
+        emergency_contact_phone: form.emergency_contact_phone?.trim() || undefined,
       });
       success('Penghuni berhasil ditambahkan, password dikirim via email');
       onSuccess(result?.id);
