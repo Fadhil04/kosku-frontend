@@ -9,7 +9,8 @@ import {
   ArrowLeft, User, Building2, Calendar, Receipt,
   AlertCircle, CheckCircle2, Clock, RefreshCw, XCircle, ChevronDown, X,
 } from 'lucide-react';
-import type { Contract, ContractBill } from '../types';
+import { billsApi } from '../api/bills';
+import type { Contract, ContractBill, Payment } from '../types';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
@@ -35,7 +36,7 @@ const CONTRACT_STATUS_CFG: Record<string, { label: string; cn: string }> = {
 };
 
 // ── Terminate Modal ───────────────────────────────────────────────
-function TerminateModal({ contractId, onClose, onSuccess }: {
+export function TerminateModal({ contractId, onClose, onSuccess }: {
   contractId: string; onClose: () => void; onSuccess: () => void;
 }) {
   const { error: toastError } = useToast();
@@ -113,7 +114,7 @@ function TerminateModal({ contractId, onClose, onSuccess }: {
 }
 
 // ── Renew Modal ───────────────────────────────────────────────────
-function RenewModal({ contract, onClose, onSuccess }: {
+export function RenewModal({ contract, onClose, onSuccess }: {
   contract: Contract; onClose: () => void; onSuccess: () => void;
 }) {
   const { success, error: toastError } = useToast();
@@ -182,7 +183,7 @@ function RenewModal({ contract, onClose, onSuccess }: {
 }
 
 // ── Bill Row ──────────────────────────────────────────────────────
-function BillRow({ bill }: { bill: ContractBill }) {
+function BillRow({ bill, onViewDetail }: { bill: ContractBill; onViewDetail: (b: ContractBill) => void }) {
   const cfg = BILL_STATUS_CFG[bill.status] ?? BILL_STATUS_CFG.UNPAID;
   const totalPaid = bill.payments.reduce((s, p) => s + p.amount, 0);
   const daysOverdue = bill.status !== 'PAID' && bill.status !== 'WAIVED'
@@ -209,6 +210,11 @@ function BillRow({ bill }: { bill: ContractBill }) {
           )}
         </div>
       </td>
+      <td>
+        <button onClick={() => onViewDetail(bill)} className="text-body-sm text-primary hover:underline font-semibold">
+          Detail
+        </button>
+      </td>
     </tr>
   );
 }
@@ -222,6 +228,7 @@ export function ContractDetailPage() {
   const [showTerminate, setShowTerminate] = useState(false);
   const [showRenew, setShowRenew] = useState(false);
   const [showConfirmTerminate, setShowConfirmTerminate] = useState(false);
+  const [selectedBill, setSelectedBill] = useState<ContractBill | null>(null);
 
   const { data: contract, isLoading } = useQuery({
     queryKey: ['contract', contractId],
@@ -376,10 +383,11 @@ export function ContractDetailPage() {
                       <th>Jumlah</th>
                       <th>Dibayar</th>
                       <th>Status</th>
+                      <th>Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {bills.map((b) => <BillRow key={b.id} bill={b} />)}
+                    {bills.map((b) => <BillRow key={b.id} bill={b} onViewDetail={setSelectedBill} />)}
                   </tbody>
                 </table>
               </div>
@@ -414,6 +422,200 @@ export function ContractDetailPage() {
           onSuccess={refresh}
         />
       )}
+
+      {selectedBill && (
+        <ContractBillDetailModal
+          bill={selectedBill}
+          contract={contract}
+          onClose={() => setSelectedBill(null)}
+          onSuccess={refresh}
+        />
+      )}
     </>
+  );
+}
+
+// ── Contract Bill Detail Modal ────────────────────────────────────
+function ContractBillDetailModal({
+  bill,
+  contract,
+  onClose,
+  onSuccess,
+}: {
+  bill: ContractBill;
+  contract: Contract;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { success, error: toastError } = useToast();
+  const { data, refetch } = useQuery({
+    queryKey: ['bill-payments', bill.id],
+    queryFn: () => billsApi.getPayments(bill.id),
+  });
+
+  const payments: Payment[] = (data as { payments?: Payment[] })?.payments ?? [];
+  const totalPaid = (data as { total_paid?: number })?.total_paid ?? 0;
+  const remainingAmount = bill.total_amount - bill.discount_amount - totalPaid;
+
+  const [showPayForm, setShowPayForm] = useState(false);
+  const [amount, setAmount] = useState(String(remainingAmount));
+  const [method, setMethod] = useState('BANK_TRANSFER');
+  const [refNumber, setRefNumber] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await billsApi.recordPayment(bill.id, {
+        idempotency_key: `pay-${bill.id}-${Date.now()}`,
+        amount: Number(amount),
+        payment_method: method,
+        payment_date: new Date().toISOString().split('T')[0],
+        reference_number: refNumber || undefined,
+      });
+      success('Pembayaran berhasil dicatat');
+      setShowPayForm(false);
+      refetch();
+      onSuccess();
+    } catch (err: unknown) {
+      toastError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || 'Gagal mencatat pembayaran'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-lg shadow-modal w-full max-w-md animate-slide-up max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant shrink-0">
+          <div>
+            <h2 className="text-headline-sm font-bold text-on-surface">Detail Tagihan</h2>
+            <p className="text-body-sm text-on-surface-variant">
+              Kamar {contract.room.room_number} · {MONTH_NAMES[bill.period_month - 1]} {bill.period_year}
+            </p>
+          </div>
+          <button onClick={onClose} className="btn-icon"><X size={18} /></button>
+        </div>
+
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
+          <div className="grid grid-cols-2 gap-3 text-body-sm">
+            <div>
+              <p className="text-on-surface-variant">Tagihan Pokok</p>
+              <p className="font-semibold text-on-surface text-money">{fmt(bill.base_rent)}</p>
+            </div>
+            <div>
+              <p className="text-on-surface-variant">Diskon</p>
+              <p className="font-semibold text-secondary text-money">
+                {bill.discount_amount > 0 ? `-${fmt(bill.discount_amount)}` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-on-surface-variant">Total Tagihan</p>
+              <p className="font-bold text-on-surface text-money">
+                {fmt(bill.total_amount - bill.discount_amount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-on-surface-variant">Sudah Dibayar</p>
+              <p className="font-semibold text-secondary text-money">{fmt(totalPaid)}</p>
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-outline-variant/50">
+            <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest mb-2">Riwayat Pembayaran</p>
+            {payments.length === 0 ? (
+              <p className="text-body-sm text-on-surface-variant text-center py-3">Belum ada pembayaran</p>
+            ) : (
+              <div className="space-y-2">
+                {payments.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between py-2 border-b border-outline-variant/30 last:border-0 text-body-sm">
+                    <div>
+                      <p className="font-medium text-on-surface text-money">{fmt(p.amount)}</p>
+                      <p className="text-on-surface-variant">
+                        {new Date(p.payment_date ?? (p as any).paymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} · {p.payment_method ?? (p as any).paymentMethod}
+                      </p>
+                    </div>
+                    {(p.reference_number ?? (p as any).referenceNumber) && (
+                      <span className="font-mono text-label-sm text-on-surface-variant">
+                        {p.reference_number ?? (p as any).referenceNumber}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {showPayForm ? (
+            <form onSubmit={handleRecordPayment} className="pt-4 border-t border-outline-variant/50 space-y-3">
+              <p className="font-semibold text-body-md text-on-surface">Catat Pembayaran Baru</p>
+              <div>
+                <label className="label">Jumlah Pembayaran (Rp)</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  max={remainingAmount}
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Metode</label>
+                <select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>
+                  <option value="BANK_TRANSFER">Transfer Bank</option>
+                  <option value="CASH">Tunai</option>
+                  <option value="EWALLET">E-Wallet</option>
+                  <option value="OTHER">Lainnya</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">Nomor Referensi (opsional)</label>
+                <input
+                  className="input"
+                  placeholder="TRF..."
+                  value={refNumber}
+                  onChange={(e) => setRefNumber(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPayForm(false)}
+                  className="btn-secondary flex-1 py-1.5"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="btn-success flex-1 py-1.5"
+                >
+                  {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            remainingAmount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAmount(String(remainingAmount));
+                  setShowPayForm(true);
+                }}
+                className="btn-primary w-full py-2 mt-2"
+              >
+                Catat Pembayaran Baru ({fmt(remainingAmount)})
+              </button>
+            )
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

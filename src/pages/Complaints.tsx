@@ -1,45 +1,55 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { complaintsApi } from '../api/complaints';
-import { DashboardLayout } from '../components/DashboardLayout';
-import { MessageSquare, X, AlertCircle, ArrowRight, Clock, MessageCircle } from 'lucide-react';
-import type { Complaint } from '../types';
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { complaintsApi } from "../api/complaints";
+import { DashboardLayout } from "../components/DashboardLayout";
+import {
+  MessageSquare,
+  X,
+  AlertCircle,
+  ArrowRight,
+  Clock,
+  MessageCircle,
+  BarChart2,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
+import type { Complaint } from "../types";
 
 // ── Config maps ──────────────────────────────────────────────────
 const PRIORITY_CONFIG: Record<string, { label: string; cn: string }> = {
-  LOW:    { label: 'Rendah',  cn: 'bg-surface-container text-on-surface-variant' },
-  MEDIUM: { label: 'Sedang',  cn: 'bg-primary-fixed text-primary-container' },
-  HIGH:   { label: 'Tinggi',  cn: 'bg-tertiary-fixed text-tertiary-container' },
-  URGENT: { label: 'Urgen',   cn: 'bg-error-container text-error' },
+  LOW: { label: "Rendah", cn: "bg-surface-container text-on-surface-variant" },
+  MEDIUM: { label: "Sedang", cn: "bg-primary-fixed text-primary-container" },
+  HIGH: { label: "Tinggi", cn: "bg-tertiary-fixed text-tertiary-container" },
+  URGENT: { label: "Urgen", cn: "bg-error-container text-error" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; cn: string }> = {
-  OPEN:        { label: 'Baru',      cn: 'badge-open' },
-  IN_PROGRESS: { label: 'Diproses',  cn: 'badge-in-progress' },
-  RESOLVED:    { label: 'Selesai',   cn: 'badge-resolved' },
-  CLOSED:      { label: 'Ditutup',   cn: 'badge-closed' },
+  OPEN: { label: "Baru", cn: "badge-open" },
+  IN_PROGRESS: { label: "Diproses", cn: "badge-in-progress" },
+  RESOLVED: { label: "Selesai", cn: "badge-resolved" },
+  CLOSED: { label: "Ditutup", cn: "badge-closed" },
 };
 
 const NEXT_STATUS: Record<string, string> = {
-  OPEN: 'IN_PROGRESS',
-  IN_PROGRESS: 'RESOLVED',
-  RESOLVED: 'CLOSED',
+  OPEN: "IN_PROGRESS",
+  IN_PROGRESS: "RESOLVED",
+  RESOLVED: "CLOSED",
 };
 
 const NEXT_ACTION_LABEL: Record<string, string> = {
-  OPEN: 'Mulai Proses',
-  IN_PROGRESS: 'Tandai Selesai',
-  RESOLVED: 'Tutup Komplain',
+  OPEN: "Mulai Proses",
+  IN_PROGRESS: "Tandai Selesai",
+  RESOLVED: "Tutup Komplain",
 };
 
 // ── Category label map ───────────────────────────────────────────
 const CATEGORY_LABEL: Record<string, string> = {
-  FACILITY_DAMAGE:        'Kerusakan Fasilitas',
-  NEIGHBOR_DISTURBANCE:   'Gangguan Tetangga',
-  CLEANLINESS:            'Kebersihan',
-  SECURITY:               'Keamanan',
-  OTHER:                  'Lainnya',
+  FACILITY_DAMAGE: "Kerusakan Fasilitas",
+  NEIGHBOR_DISTURBANCE: "Gangguan Tetangga",
+  CLEANLINESS: "Kebersihan",
+  SECURITY: "Keamanan",
+  OTHER: "Lainnya",
 };
 
 // ── Update Status Modal ──────────────────────────────────────────
@@ -52,15 +62,15 @@ function UpdateStatusModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const next = NEXT_STATUS[complaint.status];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
     try {
       await complaintsApi.updateStatus(complaint.id, next, note || undefined);
       onSuccess();
@@ -68,7 +78,7 @@ function UpdateStatusModal({
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || 'Gagal update status',
+          ?.message || "Gagal update status",
       );
     } finally {
       setIsLoading(false);
@@ -85,10 +95,16 @@ function UpdateStatusModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
           <div>
-            <h2 className="text-headline-sm font-bold text-on-surface">Update Status Komplain</h2>
-            <p className="text-body-sm text-on-surface-variant mt-0.5 line-clamp-1">{complaint.title}</p>
+            <h2 className="text-headline-sm font-bold text-on-surface">
+              Update Status Komplain
+            </h2>
+            <p className="text-body-sm text-on-surface-variant mt-0.5 line-clamp-1">
+              {complaint.title}
+            </p>
           </div>
-          <button onClick={onClose} className="btn-icon"><X size={18} /></button>
+          <button onClick={onClose} className="btn-icon">
+            <X size={18} />
+          </button>
         </div>
 
         {/* Status transition visual */}
@@ -108,7 +124,10 @@ function UpdateStatusModal({
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div>
             <label className="label">
-              Catatan <span className="text-on-surface-variant font-normal">(opsional)</span>
+              Catatan{" "}
+              <span className="text-on-surface-variant font-normal">
+                (opsional)
+              </span>
             </label>
             <input
               className="input"
@@ -126,10 +145,18 @@ function UpdateStatusModal({
           )}
 
           <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary flex-1"
+            >
               Batal
             </button>
-            <button type="submit" disabled={isLoading} className="btn-primary flex-1">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn-primary flex-1"
+            >
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -156,13 +183,21 @@ function ComplaintCard({
   onAction: (c: Complaint) => void;
   onDetail: (id: string) => void;
 }) {
-  const priority = PRIORITY_CONFIG[complaint.priority] ?? PRIORITY_CONFIG.MEDIUM;
+  const priority =
+    PRIORITY_CONFIG[complaint.priority] ?? PRIORITY_CONFIG.MEDIUM;
   const status = STATUS_CONFIG[complaint.status] ?? STATUS_CONFIG.OPEN;
   const canAct = !!NEXT_STATUS[complaint.status];
-
-  const daysOpen = Math.floor(
-    (Date.now() - new Date(complaint.created_at).getTime()) / (1000 * 60 * 60 * 24),
-  );
+  const createdAtValue =
+    (complaint as Complaint & { createdAt?: string; created_at?: string })
+      .createdAt ??
+    (complaint as Complaint & { createdAt?: string; created_at?: string })
+      .created_at ??
+    complaint.created_at;
+  const createdAt = createdAtValue ? new Date(createdAtValue) : null;
+  const daysOpen =
+    createdAt && !Number.isNaN(createdAt.getTime())
+      ? Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
 
   return (
     <div className="card p-5 flex items-start justify-between gap-4 group hover:shadow-card-hover transition-all">
@@ -179,7 +214,9 @@ function ComplaintCard({
         </div>
 
         {/* Title */}
-        <p className="text-body-md font-semibold text-on-surface">{complaint.title}</p>
+        <p className="text-body-md font-semibold text-on-surface">
+          {complaint.title}
+        </p>
 
         {/* Meta */}
         <div className="flex items-center gap-3 mt-1.5 flex-wrap">
@@ -188,7 +225,7 @@ function ComplaintCard({
           </span>
           <span className="text-body-sm text-on-surface-variant flex items-center gap-1">
             <Clock size={12} />
-            {daysOpen === 0 ? 'Hari ini' : `${daysOpen} hari lalu`}
+            {daysOpen === 0 ? "Hari ini" : `${daysOpen} hari lalu`}
           </span>
           {complaint._count.responses > 0 && (
             <span className="text-body-sm text-on-surface-variant flex items-center gap-1">
@@ -224,11 +261,11 @@ function ComplaintCard({
 export function ComplaintsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState<Complaint | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['complaints', statusFilter],
+    queryKey: ["complaints", statusFilter],
     queryFn: () => complaintsApi.getAll({ status: statusFilter || undefined }),
   });
 
@@ -236,15 +273,23 @@ export function ComplaintsPage() {
 
   // Count per status for tab chips
   const allData = useQuery({
-    queryKey: ['complaints', ''],
+    queryKey: ["complaints", ""],
     queryFn: () => complaintsApi.getAll({}),
-    enabled: statusFilter !== '',
+    enabled: statusFilter !== "",
   });
   const allComplaints = allData.data?.data ?? complaints;
   const counts = allComplaints.reduce(
-    (acc, c) => { acc[c.status] = (acc[c.status] ?? 0) + 1; return acc; },
+    (acc, c) => {
+      acc[c.status] = (acc[c.status] ?? 0) + 1;
+      return acc;
+    },
     {} as Record<string, number>,
   );
+
+  const { data: summary } = useQuery({
+    queryKey: ["complaints-summary"],
+    queryFn: () => complaintsApi.getSummary(),
+  });
 
   return (
     <>
@@ -265,30 +310,69 @@ export function ComplaintsPage() {
           </select>
         }
       >
+        {/* Summary stats */}
+        {summary && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            {[
+              { label: 'Total', value: summary.total, icon: BarChart2, color: 'text-on-surface' },
+              { label: 'Baru', value: summary.open, icon: AlertCircle, color: 'text-error' },
+              { label: 'Diproses', value: summary.in_progress, icon: Loader2, color: 'text-tertiary' },
+              { label: 'Selesai', value: summary.resolved, icon: CheckCircle2, color: 'text-secondary' },
+            ].map(({ label, value, icon: Icon, color }) => (
+              <div key={label} className="card p-4 flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-lg bg-surface-container-low flex items-center justify-center shrink-0 ${color}`}>
+                  <Icon size={18} />
+                </div>
+                <div>
+                  <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
+                  <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest">{label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Status filter chips */}
         <div className="flex items-center gap-2.5 mb-5 flex-wrap">
           {[
-            { key: 'OPEN',        label: 'Baru',     cn: 'bg-error-container text-error-on-container' },
-            { key: 'IN_PROGRESS', label: 'Diproses', cn: 'bg-tertiary-fixed text-tertiary-container' },
-            { key: 'RESOLVED',    label: 'Selesai',  cn: 'bg-secondary-container text-secondary-on-container' },
-            { key: 'CLOSED',      label: 'Ditutup',  cn: 'bg-surface-container text-on-surface-variant' },
+            {
+              key: "OPEN",
+              label: "Baru",
+              cn: "bg-error-container text-error-on-container",
+            },
+            {
+              key: "IN_PROGRESS",
+              label: "Diproses",
+              cn: "bg-tertiary-fixed text-tertiary-container",
+            },
+            {
+              key: "RESOLVED",
+              label: "Selesai",
+              cn: "bg-secondary-container text-secondary-on-container",
+            },
+            {
+              key: "CLOSED",
+              label: "Ditutup",
+              cn: "bg-surface-container text-on-surface-variant",
+            },
           ].map(({ key, label, cn }) => {
             const count = counts[key] ?? 0;
             if (!count) return null;
             return (
               <button
                 key={key}
-                onClick={() => setStatusFilter(statusFilter === key ? '' : key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-body-sm font-medium transition-all ${cn} ${statusFilter === key ? 'ring-2 ring-offset-1 ring-current' : 'opacity-75 hover:opacity-100'}`}
+                onClick={() => setStatusFilter(statusFilter === key ? "" : key)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-body-sm font-medium transition-all ${cn} ${statusFilter === key ? "ring-2 ring-offset-1 ring-current" : "opacity-75 hover:opacity-100"}`}
               >
-                <span className="font-mono font-bold tabular-nums">{count}</span>
+                <span className="font-mono font-bold tabular-nums">
+                  {count}
+                </span>
                 {label}
               </button>
             );
           })}
           {statusFilter && (
             <button
-              onClick={() => setStatusFilter('')}
+              onClick={() => setStatusFilter("")}
               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-body-sm text-on-surface-variant hover:bg-surface-container transition-colors"
             >
               <X size={13} />
@@ -314,12 +398,19 @@ export function ComplaintsPage() {
         ) : complaints.length === 0 ? (
           <div className="card p-16 text-center">
             <MessageSquare size={40} className="mx-auto text-outline mb-4" />
-            <p className="text-body-md text-on-surface-variant">Tidak ada komplain ditemukan</p>
+            <p className="text-body-md text-on-surface-variant">
+              Tidak ada komplain ditemukan
+            </p>
           </div>
         ) : (
           <div className="space-y-3 animate-fade-in">
             {complaints.map((c) => (
-              <ComplaintCard key={c.id} complaint={c} onAction={setSelected} onDetail={(id) => navigate(`/complaints/${id}`)} />
+              <ComplaintCard
+                key={c.id}
+                complaint={c}
+                onAction={setSelected}
+                onDetail={(id) => navigate(`/complaints/${id}`)}
+              />
             ))}
           </div>
         )}
@@ -330,8 +421,8 @@ export function ComplaintsPage() {
           complaint={selected}
           onClose={() => setSelected(null)}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['complaints'] });
-            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ["complaints"] });
+            queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             setSelected(null);
           }}
         />

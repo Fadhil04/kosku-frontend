@@ -1,5 +1,5 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
 import {
   LayoutDashboard,
   Building2,
@@ -10,16 +10,25 @@ import {
   BarChart3,
   LogOut,
   ChevronRight,
-} from 'lucide-react';
+  ShieldAlert,
+} from "lucide-react";
 
-const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/properties', label: 'Properti', icon: Building2 },
-  { path: '/contracts', label: 'Kontrak', icon: FileText },
-  { path: '/tenants', label: 'Penghuni', icon: Users },
-  { path: '/bills', label: 'Tagihan', icon: Receipt },
-  { path: '/complaints', label: 'Komplain', icon: MessageSquare },
-  { path: '/reports', label: 'Laporan', icon: BarChart3 },
+const ownerNavItems = [
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/properties", label: "Properti", icon: Building2 },
+  { path: "/contracts", label: "Kontrak", icon: FileText },
+  { path: "/tenants", label: "Penghuni", icon: Users },
+  { path: "/bills", label: "Tagihan", icon: Receipt },
+  { path: "/complaints", label: "Komplain", icon: MessageSquare },
+  { path: "/reports", label: "Laporan", icon: BarChart3 },
+  { path: "/admin", label: "Utilitas Admin", icon: ShieldAlert },
+];
+
+const tenantNavItems = [
+  { path: "/tenant/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/tenant/bills", label: "Tagihan", icon: Receipt },
+  { path: "/tenant/complaints", label: "Komplain", icon: MessageSquare },
+  { path: "/tenant/profile", label: "Profil", icon: Users },
 ];
 
 export function Sidebar() {
@@ -27,12 +36,16 @@ export function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-  const initials = user?.full_name
-    ?.split(' ')
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() ?? 'KO';
+  const initials =
+    user?.full_name
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() ?? "KO";
+
+  const navItems = user?.role === "tenant" ? tenantNavItems : ownerNavItems;
 
   return (
     <aside className="w-64 bg-surface-container flex flex-col h-screen fixed left-0 top-0 border-r border-outline-variant z-40">
@@ -43,9 +56,11 @@ export function Sidebar() {
             <Building2 size={16} className="text-white" />
           </div>
           <div>
-            <p className="font-bold text-on-surface text-body-lg leading-tight">KosKu</p>
+            <p className="font-bold text-on-surface text-body-lg leading-tight">
+              KosKu
+            </p>
             <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-wider">
-              Admin Portal
+              {user?.role === "tenant" ? "Penghuni Portal" : "Admin Portal"}
             </p>
           </div>
         </div>
@@ -59,7 +74,7 @@ export function Sidebar() {
             <Link
               key={path}
               to={path}
-              className={isActive ? 'nav-item-active' : 'nav-item-inactive'}
+              className={isActive ? "nav-item-active" : "nav-item-inactive"}
             >
               <Icon size={17} className="shrink-0" />
               <span className="flex-1">{label}</span>
@@ -74,7 +89,9 @@ export function Sidebar() {
       {/* User + Logout */}
       <div className="px-3 py-4 border-t border-outline-variant space-y-1">
         <button
-          onClick={() => navigate('/profile')}
+          onClick={() =>
+            navigate(user?.role === "tenant" ? "/tenant/profile" : "/profile")
+          }
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg w-full hover:bg-surface-container-high transition-colors"
         >
           <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center shrink-0">
@@ -84,10 +101,10 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0 text-left">
             <p className="text-body-sm font-semibold text-on-surface truncate">
-              {user?.full_name ?? 'Owner'}
+              {user?.full_name ?? "Owner"}
             </p>
             <p className="font-mono text-label-sm text-on-surface-variant truncate">
-              {user?.email ?? ''}
+              {user?.email ?? ""}
             </p>
           </div>
         </button>

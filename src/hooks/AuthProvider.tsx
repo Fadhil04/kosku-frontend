@@ -17,8 +17,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then((user) => {
           setUser(user);
           // Backfill tenant lama yang belum punya createdByOwnerId
-          if (user.role === 'owner') {
-            apiClient.post('/admin/backfill/tenant-owner').catch(() => {});
+          if (user.role === "owner") {
+            apiClient.post("/admin/backfill/tenant-owner").catch(() => {});
           }
         })
         .catch(() => localStorage.clear())
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     email: string,
     password: string,
-    role: "owner" | "tenant",
+    role?: "owner" | "tenant",
   ) => {
     const data = await authApi.login(email, password, role);
     localStorage.setItem("access_token", data.access_token);
@@ -41,11 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Backfill createdByOwnerId untuk tenant lama yang belum punya
     // Dipanggil sekali setelah login, aman diulang (idempotent)
-    if (role === 'owner') {
-      apiClient.post('/admin/backfill/tenant-owner').catch(() => {
+    if (data.user.role === "owner") {
+      apiClient.post("/admin/backfill/tenant-owner").catch(() => {
         // Bukan operasi kritis — gagal tidak masalah
       });
     }
+
+    return data.user.role;
   };
 
   const logout = async () => {
@@ -55,8 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshProfile = async () => {
+    try {
+      const updatedUser = await authApi.getProfile();
+      setUser(updatedUser);
+    } catch (err) {
+      console.error("Gagal refresh profile:", err);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

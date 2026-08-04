@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Contract, Property, Room, Tenant } from '../types';
+import { TerminateModal, RenewModal } from './ContractDetail';
 
 // ── Helpers ──────────────────────────────────────────────────────
 const fmt = (n: number) =>
@@ -58,16 +59,18 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   const [error, setError] = useState('');
 
   const { data: tenantsData, isLoading: loadingTenants } = useQuery({
-    queryKey: ['tenants'],          // sama dengan cache di TenantsPage supaya invalidasi otomatis berlaku
-    queryFn: () => tenantsApi.getAll({ limit: 200 }),
+    queryKey: ['tenants'],
+    queryFn: () => tenantsApi.getAll({ limit: 50 }),
     staleTime: 0,
-    refetchOnMount: 'always',       // paksa refetch setiap modal dibuka
+    refetchOnMount: 'always',
+    retry: false,                   // jangan retry kalau gagal — hindari infinite loading
   });
   const { data: propertiesData, isLoading: loadingProperties } = useQuery({
     queryKey: ['properties'],
     queryFn: propertiesApi.getAll,
     staleTime: 0,
     refetchOnMount: 'always',
+    retry: false,
   });
 
   const tenants: Tenant[] = tenantsData?.data ?? [];
@@ -370,7 +373,15 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
 }
 
 // ── Contract Row ──────────────────────────────────────────────────
-function ContractRow({ contract }: { contract: Contract }) {
+function ContractRow({
+  contract,
+  onTerminateClick,
+  onRenewClick,
+}: {
+  contract: Contract;
+  onTerminateClick: (id: string) => void;
+  onRenewClick: (c: Contract) => void;
+}) {
   const navigate = useNavigate();
   const cfg = STATUS_CFG[contract.status] ?? STATUS_CFG.PENDING;
   const days = daysUntil(contract.end_date);
@@ -433,12 +444,30 @@ function ContractRow({ contract }: { contract: Contract }) {
         </div>
       </td>
       <td>
-        <button
-          onClick={() => navigate(`/contracts/${contract.id}`)}
-          className="flex items-center gap-1 text-body-sm text-primary hover:underline font-medium"
-        >
-          Detail <ChevronRight size={13} />
-        </button>
+        <div className="flex flex-col gap-1.5 items-start">
+          <button
+            onClick={() => navigate(`/contracts/${contract.id}`)}
+            className="flex items-center gap-1 text-body-sm text-primary hover:underline font-medium"
+          >
+            Detail <ChevronRight size={13} />
+          </button>
+          {contract.status === 'ACTIVE' && (
+            <button
+              onClick={() => onTerminateClick(contract.id)}
+              className="text-body-sm text-error hover:underline font-medium"
+            >
+              Terminasi
+            </button>
+          )}
+          {(contract.status === 'ACTIVE' || contract.status === 'EXPIRED') && (
+            <button
+              onClick={() => onRenewClick(contract)}
+              className="text-body-sm text-secondary hover:underline font-medium"
+            >
+              Perpanjang
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -450,6 +479,8 @@ export function ContractsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
+  const [activeTerminateId, setActiveTerminateId] = useState<string | null>(null);
+  const [activeRenewContract, setActiveRenewContract] = useState<Contract | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['contracts', statusFilter, page],
@@ -549,7 +580,12 @@ export function ContractsPage() {
                 </thead>
                 <tbody>
                   {contracts.map((c) => (
-                    <ContractRow key={c.id} contract={c} />
+                    <ContractRow
+                      key={c.id}
+                      contract={c}
+                      onTerminateClick={setActiveTerminateId}
+                      onRenewClick={setActiveRenewContract}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -577,6 +613,30 @@ export function ContractsPage() {
             queryClient.invalidateQueries({ queryKey: ['dashboard'] });
             queryClient.invalidateQueries({ queryKey: ['bills'] });
             queryClient.invalidateQueries({ queryKey: ['properties'] });
+          }}
+        />
+      )}
+
+      {activeTerminateId && (
+        <TerminateModal
+          contractId={activeTerminateId}
+          onClose={() => setActiveTerminateId(null)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['contracts'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['bills'] });
+          }}
+        />
+      )}
+
+      {activeRenewContract && (
+        <RenewModal
+          contract={activeRenewContract}
+          onClose={() => setActiveRenewContract(null)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['contracts'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            queryClient.invalidateQueries({ queryKey: ['bills'] });
           }}
         />
       )}

@@ -1,5 +1,5 @@
 import { apiClient } from '../lib/axios';
-import type { ApiResponse, Bill } from '../types';
+import type { ApiResponse, Bill, Payment } from '../types';
 
 export const billsApi = {
   getAll: async (params?: { status?: string; property_id?: string; page?: number; limit?: number }) => {
@@ -46,6 +46,11 @@ export const billsApi = {
 
   waiveBill: async (billId: string, data: { reason: string }) => {
     const res = await apiClient.patch(`/bills/${billId}/waive`, data);
+    return res.data.data;
+  },
+
+  getPaymentById: async (paymentId: string) => {
+    const res = await apiClient.get<ApiResponse<Payment>>(`/payments/${paymentId}`);
     return res.data.data;
   },
 };

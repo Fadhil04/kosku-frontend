@@ -7,9 +7,10 @@ export interface AuthContextType {
   login: (
     email: string,
     password: string,
-    role: "owner" | "tenant",
-  ) => Promise<void>;
+    role?: "owner" | "tenant",
+  ) => Promise<"owner" | "tenant">;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);

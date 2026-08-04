@@ -72,4 +72,11 @@ export const roomsApi = {
     );
     return res.data.data;
   },
+
+  delete: async (propertyId: string, roomId: string) => {
+    const res = await apiClient.delete<ApiResponse<null>>(
+      `/properties/${propertyId}/rooms/${roomId}`,
+    );
+    return res.data;
+  },
 };

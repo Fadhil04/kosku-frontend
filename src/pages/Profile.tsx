@@ -6,13 +6,13 @@ import { useToast } from '../components/Toast';
 import { User, Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { success, error: toastError } = useToast();
 
   // Profile form
   const [profile, setProfile] = useState({
     full_name: user?.full_name ?? '',
-    phone_number: (user as { phone_number?: string })?.phone_number ?? '',
+    phone_number: user?.phone_number ?? '',
   });
   const [profileLoading, setProfileLoading] = useState(false);
 
@@ -29,6 +29,7 @@ export function ProfilePage() {
         full_name: profile.full_name,
         phone_number: profile.phone_number || undefined,
       });
+      await refreshProfile();
       success('Profil berhasil diperbarui');
     } catch (err: unknown) {
       toastError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Gagal menyimpan profil');

@@ -40,4 +40,9 @@ export const propertiesApi = {
     const res = await apiClient.put<ApiResponse<Property>>(`/properties/${id}`, data);
     return res.data.data;
   },
+
+  delete: async (id: string) => {
+    const res = await apiClient.delete<ApiResponse<null>>(`/properties/${id}`);
+    return res.data;
+  },
 };

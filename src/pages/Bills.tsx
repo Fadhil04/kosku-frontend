@@ -155,6 +155,87 @@ function DiscountModal({ bill, onClose, onSuccess }: { bill: Bill; onClose: () =
   );
 }
 
+// ── Payment Receipt Modal ─────────────────────────────────────────
+function PaymentReceiptModal({ paymentId, onClose }: { paymentId: string; onClose: () => void }) {
+  const { data: payment, isLoading } = useQuery({
+    queryKey: ['payment-detail', paymentId],
+    queryFn: () => billsApi.getPaymentById(paymentId),
+    enabled: !!paymentId,
+  });
+
+  const fmtDate = (s: string) => {
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  if (isLoading) return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-lg shadow-modal w-full max-w-sm p-8 text-center animate-slide-up">
+        <span className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin inline-block mb-2" />
+        <p className="text-body-sm text-on-surface-variant">Memuat bukti pembayaran...</p>
+      </div>
+    </div>
+  );
+
+  if (!payment) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-lg shadow-modal w-full max-w-sm animate-slide-up overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant">
+          <h3 className="text-body-lg font-bold text-on-surface">Kuitansi Pembayaran</h3>
+          <button onClick={onClose} className="btn-icon"><X size={16} /></button>
+        </div>
+        {/* Body */}
+        <div className="p-5 space-y-4">
+          <div className="text-center py-3 bg-surface-container-low rounded-lg">
+            <p className="font-mono text-label-xs text-on-surface-variant uppercase tracking-widest">Jumlah Dibayar</p>
+            <p className="text-2xl font-bold text-secondary text-money mt-1">{fmt(payment.amount)}</p>
+          </div>
+
+          <div className="space-y-2.5 text-body-sm">
+            <div className="flex justify-between py-1.5 border-b border-outline-variant/30">
+              <span className="text-on-surface-variant">Metode</span>
+              <span className="font-semibold text-on-surface">{payment.payment_method}</span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-outline-variant/30">
+              <span className="text-on-surface-variant">Tanggal</span>
+              <span className="font-semibold text-on-surface">{fmtDate(payment.payment_date)}</span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-outline-variant/30">
+              <span className="text-on-surface-variant">No. Referensi</span>
+              <span className="font-mono text-on-surface font-semibold">{payment.reference_number ?? '—'}</span>
+            </div>
+            <div className="flex justify-between py-1.5 border-b border-outline-variant/30">
+              <span className="text-on-surface-variant">Dicatat Oleh</span>
+              <span className="font-semibold text-on-surface">Owner (ID: {(payment.recorded_by ?? '').slice(0, 8)}...)</span>
+            </div>
+            {payment.notes && (
+              <div className="py-1.5">
+                <span className="text-on-surface-variant block mb-1">Catatan</span>
+                <p className="p-2.5 bg-surface-container-lowest border border-outline-variant/50 rounded text-body-xs text-on-surface leading-relaxed">
+                  {payment.notes}
+                </p>
+              </div>
+            )}
+            {payment.proof_url && (
+              <div className="py-1.5">
+                <span className="text-on-surface-variant block mb-1">Bukti Transfer</span>
+                <a href={payment.proof_url} target="_blank" rel="noreferrer" className="block border border-outline-variant/60 rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
+                  <img src={payment.proof_url} alt="Bukti Transfer" className="w-full max-h-48 object-cover" />
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Bill Detail Modal ─────────────────────────────────────────────
 function BillDetailModal({ bill, onClose }: { bill: Bill; onClose: () => void }) {
   const { data } = useQuery({
@@ -163,47 +244,63 @@ function BillDetailModal({ bill, onClose }: { bill: Bill; onClose: () => void })
   });
   const payments: Payment[] = (data as { payments?: Payment[] })?.payments ?? [];
   const totalPaid = (data as { total_paid?: number })?.total_paid ?? 0;
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-modal w-full max-w-md animate-slide-up">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
-          <div>
-            <h2 className="text-headline-sm font-bold text-on-surface">Detail Tagihan</h2>
-            <p className="text-body-sm text-on-surface-variant">{bill.tenant.full_name} · {MONTH_NAMES[bill.period_month-1]} {bill.period_year}</p>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative bg-white rounded-lg shadow-modal w-full max-w-md animate-slide-up">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant">
+            <div>
+              <h2 className="text-headline-sm font-bold text-on-surface">Detail Tagihan</h2>
+              <p className="text-body-sm text-on-surface-variant">{bill.tenant.full_name} · {MONTH_NAMES[bill.period_month-1]} {bill.period_year}</p>
+            </div>
+            <button onClick={onClose} className="btn-icon"><X size={18} /></button>
           </div>
-          <button onClick={onClose} className="btn-icon"><X size={18} /></button>
-        </div>
-        <div className="px-6 py-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3 text-body-sm">
-            <div><p className="text-on-surface-variant">Tagihan Pokok</p><p className="font-semibold text-on-surface text-money">{fmt(bill.base_rent)}</p></div>
-            <div><p className="text-on-surface-variant">Diskon</p><p className="font-semibold text-secondary text-money">{bill.discount_amount > 0 ? `-${fmt(bill.discount_amount)}` : '—'}</p></div>
-            <div><p className="text-on-surface-variant">Total Tagihan</p><p className="font-bold text-on-surface text-money">{fmt(bill.final_amount)}</p></div>
-            <div><p className="text-on-surface-variant">Sudah Dibayar</p><p className="font-semibold text-secondary text-money">{fmt(totalPaid)}</p></div>
-          </div>
-          {bill.discount_reason && <p className="text-body-sm text-on-surface-variant">Alasan diskon: <span className="text-on-surface">{bill.discount_reason}</span></p>}
-          <div className="pt-3 border-t border-outline-variant/50">
-            <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest mb-2">Riwayat Pembayaran</p>
-            {payments.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant text-center py-3">Belum ada pembayaran</p>
-            ) : (
-              <div className="space-y-2">
-                {payments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between py-2 border-b border-outline-variant/30 last:border-0">
-                    <div>
-                      <p className="text-body-sm font-medium text-on-surface text-money">{fmt(p.amount)}</p>
-                      <p className="text-body-sm text-on-surface-variant">{new Date(p.payment_date).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' })} · {p.payment_method}</p>
+          <div className="px-6 py-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 text-body-sm">
+              <div><p className="text-on-surface-variant">Tagihan Pokok</p><p className="font-semibold text-on-surface text-money">{fmt(bill.base_rent)}</p></div>
+              <div><p className="text-on-surface-variant">Diskon</p><p className="font-semibold text-secondary text-money">{bill.discount_amount > 0 ? `-${fmt(bill.discount_amount)}` : '—'}</p></div>
+              <div><p className="text-on-surface-variant">Total Tagihan</p><p className="font-bold text-on-surface text-money">{fmt(bill.final_amount)}</p></div>
+              <div><p className="text-on-surface-variant">Sudah Dibayar</p><p className="font-semibold text-secondary text-money">{fmt(totalPaid)}</p></div>
+            </div>
+            {bill.discount_reason && <p className="text-body-sm text-on-surface-variant">Alasan diskon: <span className="text-on-surface">{bill.discount_reason}</span></p>}
+            <div className="pt-3 border-t border-outline-variant/50">
+              <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-widest mb-2">Riwayat Pembayaran <span className="text-body-xs text-on-surface-variant font-sans normal-case">(klik untuk kuitansi)</span></p>
+              {payments.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant text-center py-3">Belum ada pembayaran</p>
+              ) : (
+                <div className="space-y-2">
+                  {payments.map((p) => (
+                    <div
+                      key={p.id}
+                      onClick={() => setSelectedPaymentId(p.id)}
+                      className="flex items-center justify-between py-2 border border-transparent hover:border-outline-variant/50 hover:bg-surface-container-low px-2 rounded cursor-pointer transition-all duration-150"
+                    >
+                      <div>
+                        <p className="text-body-sm font-medium text-on-surface text-money">{fmt(p.amount)}</p>
+                        <p className="text-body-sm text-on-surface-variant">{new Date(p.payment_date ?? (p as unknown as { paymentDate?: string }).paymentDate).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' })} · {p.payment_method ?? (p as unknown as { paymentMethod?: string }).paymentMethod}</p>
+                      </div>
+                      {(p.reference_number ?? (p as unknown as { referenceNumber?: string }).referenceNumber) && (
+                        <span className="font-mono text-label-sm text-on-surface-variant">{p.reference_number ?? (p as unknown as { referenceNumber?: string }).referenceNumber}</span>
+                      )}
                     </div>
-                    {p.reference_number && <span className="font-mono text-label-sm text-on-surface-variant">{p.reference_number}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {selectedPaymentId && (
+        <PaymentReceiptModal
+          paymentId={selectedPaymentId}
+          onClose={() => setSelectedPaymentId(null)}
+        />
+      )}
+    </>
   );
 }
 

@@ -4,9 +4,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { propertiesApi } from '../api/properties';
 import { roomsApi } from '../api/room';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useToast } from '../components/Toast';
 import {
   ArrowLeft, MapPin, Building2, Plus, Pencil, X, AlertCircle,
-  BedDouble, TrendingUp, Receipt, ChevronDown, CheckCircle2, Wrench, User,
+  BedDouble, TrendingUp, Receipt, ChevronDown, CheckCircle2, Wrench, User, Trash2,
 } from 'lucide-react';
 import type { RoomStatus, RoomInProperty } from '../types';
 
@@ -224,6 +226,7 @@ function RoomCard({ room, propertyId, onRefresh }: {
   room: RoomInProperty;
   propertyId: string;
   onRefresh: () => void;
+  onDeleteRoom: (room: RoomInProperty) => void;
 }) {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -316,6 +319,17 @@ function RoomCard({ room, propertyId, onRefresh }: {
           )}
         </div>
       )}
+
+      {/* Delete room */}
+      {!room.active_contract && (
+        <button
+          onClick={() => onDeleteRoom(room)}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 text-body-sm text-error hover:bg-error-container/40 rounded py-1.5 transition-colors"
+        >
+          <Trash2 size={13} />
+          Hapus Kamar
+        </button>
+      )}
     </div>
   );
 }
@@ -325,8 +339,11 @@ export function PropertyDetailPage() {
   const { propertyId } = useParams<{ propertyId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddRoom, setShowAddRoom] = useState(false);
+  const [showDeleteProperty, setShowDeleteProperty] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<RoomInProperty | null>(null);
 
   const { data: property, isLoading } = useQuery({
     queryKey: ['property', propertyId],
@@ -338,6 +355,35 @@ export function PropertyDetailPage() {
     queryClient.invalidateQueries({ queryKey: ['property', propertyId] });
     queryClient.invalidateQueries({ queryKey: ['properties'] });
     queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  };
+
+  const handleDeleteProperty = async () => {
+    try {
+      await propertiesApi.delete(propertyId!);
+      toastSuccess('Properti berhasil dihapus');
+      queryClient.invalidateQueries({ queryKey: ['properties'] });
+      navigate('/properties');
+    } catch (err: unknown) {
+      toastError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+          || 'Gagal menghapus properti'
+      );
+    }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    try {
+      await roomsApi.delete(propertyId!, roomToDelete.id);
+      toastSuccess(`Kamar ${roomToDelete.room_number} berhasil dihapus`);
+      setRoomToDelete(null);
+      refresh();
+    } catch (err: unknown) {
+      toastError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+          || 'Gagal menghapus kamar'
+      );
+    }
   };
 
   if (isLoading) {
@@ -375,6 +421,13 @@ export function PropertyDetailPage() {
         subtitle={`${property.address}, ${property.city}`}
         action={
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowDeleteProperty(true)}
+              className="btn-danger"
+            >
+              <Trash2 size={15} />
+              Hapus
+            </button>
             <button onClick={() => setShowEditModal(true)} className="btn-secondary">
               <Pencil size={15} />
               Edit Properti
@@ -467,7 +520,7 @@ export function PropertyDetailPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fade-in">
               {rooms.map((r) => (
-                <RoomCard key={r.id} room={r} propertyId={property.id} onRefresh={refresh} />
+                <RoomCard key={r.id} room={r} propertyId={property.id} onRefresh={refresh} onDeleteRoom={setRoomToDelete} />
               ))}
             </div>
           )}
@@ -486,6 +539,28 @@ export function PropertyDetailPage() {
           propertyId={property.id}
           onClose={() => setShowAddRoom(false)}
           onSuccess={refresh}
+        />
+      )}
+
+      {showDeleteProperty && (
+        <ConfirmDialog
+          title="Hapus Properti?"
+          description={`Properti "${property.name}" akan dihapus secara permanen. Pastikan tidak ada kamar atau kontrak aktif di properti ini sebelum menghapus.`}
+          confirmLabel="Ya, Hapus"
+          variant="danger"
+          onConfirm={handleDeleteProperty}
+          onCancel={() => setShowDeleteProperty(false)}
+        />
+      )}
+
+      {roomToDelete && (
+        <ConfirmDialog
+          title={`Hapus Kamar ${roomToDelete.room_number}?`}
+          description="Kamar ini akan dihapus. Kamar yang sedang terisi atau memiliki kontrak aktif tidak dapat dihapus."
+          confirmLabel="Ya, Hapus Kamar"
+          variant="danger"
+          onConfirm={handleDeleteRoom}
+          onCancel={() => setRoomToDelete(null)}
         />
       )}
     </>

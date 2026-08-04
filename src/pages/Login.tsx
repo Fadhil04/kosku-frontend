@@ -1,28 +1,28 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { Building2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth";
+import { Building2, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setIsLoading(true);
     try {
-      await login(email, password, 'owner');
-      navigate('/dashboard');
+      const role = await login(email, password);
+      navigate(role === "tenant" ? "/tenant/dashboard" : "/dashboard");
     } catch (err: unknown) {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || 'Email atau password salah';
+          ?.message || "Email atau password salah";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -43,19 +43,24 @@ export function LoginPage() {
         <div className="space-y-6">
           <div className="space-y-3">
             <h1 className="text-[40px] font-bold leading-tight text-white tracking-tight">
-              Kelola properti<br />dengan lebih<br />profesional.
+              Kelola properti
+              <br />
+              dengan lebih
+              <br />
+              profesional.
             </h1>
             <p className="text-white/70 text-body-lg leading-relaxed">
-              Sistem manajemen kos terpadu — dari kontrak, tagihan, hingga pengaduan, semua dalam satu platform.
+              Sistem manajemen kos terpadu — dari kontrak, tagihan, hingga
+              pengaduan, semua dalam satu platform.
             </p>
           </div>
 
           {/* Feature bullets */}
           <div className="space-y-3">
             {[
-              'Generate tagihan otomatis untuk semua penghuni',
-              'Reminder email H-7, H-3 sebelum jatuh tempo',
-              'Laporan pendapatan & tingkat hunian real-time',
+              "Generate tagihan otomatis untuk semua penghuni",
+              "Reminder email H-7, H-3 sebelum jatuh tempo",
+              "Laporan pendapatan & tingkat hunian real-time",
             ].map((feat) => (
               <div key={feat} className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center shrink-0">
@@ -67,7 +72,9 @@ export function LoginPage() {
           </div>
         </div>
 
-        <p className="text-white/40 font-mono text-label-sm">© 2026 KosKu · v1.0.0</p>
+        <p className="text-white/40 font-mono text-label-sm">
+          © 2026 KosKu · v1.0.0
+        </p>
       </div>
 
       {/* Right panel — form */}
@@ -78,20 +85,32 @@ export function LoginPage() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Building2 size={16} className="text-white" />
             </div>
-            <span className="font-bold text-on-surface text-body-lg">KosKu</span>
+            <span className="font-bold text-on-surface text-body-lg">
+              KosKu
+            </span>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-headline-md text-on-surface font-bold">Masuk ke akun</h2>
+            <h2 className="text-headline-md text-on-surface font-bold">
+              Masuk ke akun
+            </h2>
             <p className="text-on-surface-variant text-body-md mt-1">
-              Belum punya akun? <a href="/register" className="text-primary font-medium hover:underline">Daftar di sini</a>
+              Belum punya akun?{" "}
+              <Link
+                to="/register"
+                className="text-primary font-medium hover:underline"
+              >
+                Daftar di sini
+              </Link>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
-              <label htmlFor="email" className="label">Email</label>
+              <label htmlFor="email" className="label">
+                Email
+              </label>
               <input
                 id="email"
                 type="email"
@@ -106,11 +125,18 @@ export function LoginPage() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="label">Password</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label htmlFor="password" className="label mb-0">
+                  Password
+                </label>
+                <Link to="/forgot-password" className="text-body-sm text-primary font-medium hover:underline">
+                  Lupa Password?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   className="input pr-10"
                   placeholder="••••••••"
                   value={password}
@@ -148,21 +174,10 @@ export function LoginPage() {
                   Masuk...
                 </span>
               ) : (
-                'Masuk'
+                "Masuk"
               )}
             </button>
           </form>
-
-          {/* Demo credentials hint */}
-          <div className="mt-6 p-3 bg-surface-container rounded-lg border border-outline-variant">
-            <p className="font-mono text-label-sm text-on-surface-variant uppercase tracking-wider mb-1.5">Demo</p>
-            <p className="text-body-sm text-on-surface-variant">
-              Email: <span className="text-on-surface font-medium">owner@kosku.dev</span>
-            </p>
-            <p className="text-body-sm text-on-surface-variant">
-              Password: <span className="text-on-surface font-medium">password123</span>
-            </p>
-          </div>
         </div>
       </div>
     </div>
