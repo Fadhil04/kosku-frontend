@@ -222,7 +222,7 @@ function AddRoomModal({
 }
 
 // ── Room Card ────────────────────────────────────────────────────
-function RoomCard({ room, propertyId, onRefresh }: {
+function RoomCard({ room, propertyId, onRefresh, onDeleteRoom }: {
   room: RoomInProperty;
   propertyId: string;
   onRefresh: () => void;

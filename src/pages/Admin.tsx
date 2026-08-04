@@ -8,7 +8,6 @@ import {
   FileClock,
   UserCheck,
   ShieldCheck,
-  AlertCircle,
 } from "lucide-react";
 
 interface TriggerCardProps {
