@@ -58,14 +58,16 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
   const [error, setError] = useState('');
 
   const { data: tenantsData, isLoading: loadingTenants } = useQuery({
-    queryKey: ['tenants-all'],
+    queryKey: ['tenants'],          // sama dengan cache di TenantsPage supaya invalidasi otomatis berlaku
     queryFn: () => tenantsApi.getAll({ limit: 200 }),
-    staleTime: 0, // selalu ambil terbaru saat modal dibuka
+    staleTime: 0,
+    refetchOnMount: 'always',       // paksa refetch setiap modal dibuka
   });
   const { data: propertiesData, isLoading: loadingProperties } = useQuery({
     queryKey: ['properties'],
     queryFn: propertiesApi.getAll,
     staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const tenants: Tenant[] = tenantsData?.data ?? [];

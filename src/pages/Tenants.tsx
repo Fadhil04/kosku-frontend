@@ -11,7 +11,7 @@ import {
 import type { Tenant } from '../types';
 
 // ── Add Tenant Modal ──────────────────────────────────────────────
-function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (tenantId?: string) => void }) {
+function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (data: { id: string; temp_password?: string }) => void }) {
   const { success, error: toastError } = useToast();
   const [form, setForm] = useState({
     full_name: '',
@@ -40,8 +40,11 @@ function AddTenantModal({ onClose, onSuccess }: { onClose: () => void; onSuccess
         emergency_contact_name: form.emergency_contact_name?.trim() || undefined,
         emergency_contact_phone: form.emergency_contact_phone?.trim() || undefined,
       });
-      success('Penghuni berhasil ditambahkan, password dikirim via email');
-      onSuccess(result?.id);
+      success('Penghuni berhasil ditambahkan');
+      onSuccess({
+        id: result?.id ?? '',
+        temp_password: (result as { temp_password?: string })?.temp_password,
+      });
       onClose();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Gagal menambahkan penghuni';
@@ -307,10 +310,11 @@ function EmptyNoContract({ onAdd }: { onAdd: () => void }) {
 
 // ── Page ─────────────────────────────────────────────────────────
 export function TenantsPage() {
+  const { success } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
-  const [newTenantId, setNewTenantId] = useState<string | null>(null);
+  const [newTenantData, setNewTenantData] = useState<{ id: string; temp_password?: string } | null>(null);
   const [search, setSearch] = useState('');
 
   const { data, isLoading, isError } = useQuery({
@@ -416,29 +420,49 @@ export function TenantsPage() {
       {showModal && (
         <AddTenantModal
           onClose={() => setShowModal(false)}
-          onSuccess={(tenantId?: string) => {
+          onSuccess={(data) => {
             queryClient.invalidateQueries({ queryKey: ['tenants'] });
-            if (tenantId) setNewTenantId(tenantId);
+            setNewTenantData(data);
           }}
         />
       )}
 
-      {/* Prompt buat kontrak setelah tambah penghuni */}
-      {newTenantId && (
+      {/* Prompt buat kontrak & lihat password sementara setelah tambah penghuni */}
+      {newTenantData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={() => setNewTenantId(null)} />
+          <div className="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm" onClick={() => setNewTenantData(null)} />
           <div className="relative bg-white rounded-lg shadow-modal w-full max-w-sm animate-slide-up p-6 text-center">
             <div className="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 size={28} className="text-secondary" />
             </div>
-            <h3 className="text-body-lg font-bold text-on-surface mb-2">Penghuni berhasil ditambahkan!</h3>
+            <h3 className="text-body-lg font-bold text-on-surface mb-1">Penghuni berhasil ditambahkan!</h3>
+            
+            {newTenantData.temp_password && (
+              <div className="my-3 p-3 bg-surface-container-low rounded-lg border border-outline-variant text-left">
+                <p className="text-body-sm text-on-surface-variant font-medium">Password Sementara Penghuni:</p>
+                <div className="flex items-center justify-between mt-1">
+                  <code className="font-mono text-body-md font-bold text-primary">{newTenantData.temp_password}</code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(newTenantData.temp_password!);
+                      success('Password berhasil disalin!');
+                    }}
+                    className="btn-ghost btn-sm text-body-sm text-primary font-medium"
+                  >
+                    Salin
+                  </button>
+                </div>
+              </div>
+            )}
+
             <p className="text-body-sm text-on-surface-variant mb-5">
-              Password sementara sudah dikirim via email. Mau langsung buatkan kontrak?
+              Mau langsung buatkan kontrak untuk penghuni ini?
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setNewTenantId(null)} className="btn-secondary flex-1">Nanti</button>
+              <button onClick={() => setNewTenantData(null)} className="btn-secondary flex-1">Nanti</button>
               <button
-                onClick={() => { setNewTenantId(null); navigate('/contracts'); }}
+                onClick={() => { setNewTenantData(null); navigate('/contracts'); }}
                 className="btn-primary flex-1"
               >
                 Buat Kontrak
