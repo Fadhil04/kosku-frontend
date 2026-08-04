@@ -36,7 +36,14 @@ function AddPropertyModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     setIsLoading(true);
     setError('');
     try {
-      await propertiesApi.create(form);
+      const payload = {
+        name: form.name,
+        address: form.address,
+        city: form.city,
+        province: form.province,
+        ...(form.postal_code?.trim() ? { postal_code: form.postal_code.trim() } : {}),
+      };
+      await propertiesApi.create(payload);
       success('Properti berhasil ditambahkan');
       onSuccess();
       onClose();
