@@ -27,6 +27,7 @@ export const contractsApi = {
     monthly_rent: number;
     deposit_amount?: number;
     billing_date?: number;
+    additional_charges?: { name: string; amount: number }[];
     notes?: string;
   }) => {
     const res = await apiClient.post<ApiResponse<Contract>>('/contracts', data);

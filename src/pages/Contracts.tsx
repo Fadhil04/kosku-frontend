@@ -53,6 +53,7 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
     billing_date: '5',
     notes: '',
   });
+  const [additionalCharges, setAdditionalCharges] = useState<{ name: string; amount: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -99,6 +100,9 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
         monthly_rent: Number(form.monthly_rent),
         deposit_amount: form.deposit_amount ? Number(form.deposit_amount) : 0,
         billing_date: Number(form.billing_date),
+        additional_charges: additionalCharges
+          .filter((c) => c.name.trim() && Number(c.amount) > 0)
+          .map((c) => ({ name: c.name.trim(), amount: Number(c.amount) })),
         notes: form.notes || undefined,
       });
       success('Kontrak berhasil dibuat, tagihan otomatis digenerate');
@@ -272,6 +276,52 @@ function AddContractModal({ onClose, onSuccess }: { onClose: () => void; onSucce
               </select>
               <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-outline pointer-events-none" />
             </div>
+          </div>
+
+          {/* Additional Charges */}
+          <div className="pt-2 border-t border-outline-variant">
+            <div className="flex items-center justify-between mb-2">
+              <label className="label mb-0">Biaya Tambahan Bulanan <span className="text-on-surface-variant font-normal">(opsional)</span></label>
+              <button
+                type="button"
+                onClick={() => setAdditionalCharges((prev) => [...prev, { name: '', amount: '' }])}
+                className="text-body-sm text-primary font-medium hover:underline flex items-center gap-1"
+              >
+                + Tambah Biaya
+              </button>
+            </div>
+            {additionalCharges.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-2 mb-2">
+                <input
+                  className="input flex-1"
+                  placeholder="Nama (misal: Listrik/Air)"
+                  value={item.name}
+                  onChange={(e) => {
+                    const next = [...additionalCharges];
+                    next[idx].name = e.target.value;
+                    setAdditionalCharges(next);
+                  }}
+                />
+                <input
+                  type="number"
+                  className="input flex-1"
+                  placeholder="Jumlah (Rp)"
+                  value={item.amount}
+                  onChange={(e) => {
+                    const next = [...additionalCharges];
+                    next[idx].amount = e.target.value;
+                    setAdditionalCharges(next);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setAdditionalCharges((prev) => prev.filter((_, i) => i !== idx))}
+                  className="btn-icon text-error shrink-0"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ))}
           </div>
 
           {/* Notes */}
