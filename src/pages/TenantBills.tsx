@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { DashboardLayout } from "../components/DashboardLayout";
 import { billsApi } from "../api/bills";
+import { PayButton } from "../components/PayButton";
 import { Receipt, Clock, CheckCircle2 } from "lucide-react";
 import type { Bill } from "../types";
 
@@ -13,6 +14,7 @@ const fmt = (n: number) =>
 
 function BillCard({ bill }: { bill: Bill }) {
   const isPaid = bill.status === "PAID";
+  const isPayable = bill.status === "UNPAID" || bill.status === "PARTIALLY_PAID";
 
   return (
     <div className="card p-5 flex flex-col gap-4">
@@ -70,6 +72,12 @@ function BillCard({ bill }: { bill: Bill }) {
           {isPaid ? "Pembayaran sudah diterima" : "Pembayaran masih menunggu"}
         </span>
       </div>
+
+      {isPayable && (
+        <div className="flex justify-end border-t border-outline-variant pt-3">
+          <PayButton billId={bill.id} />
+        </div>
+      )}
     </div>
   );
 }

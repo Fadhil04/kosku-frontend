@@ -219,12 +219,38 @@ export interface Payment {
   id: string;
   bill_id: string;
   amount: number;
+  late_fee_amount?: number;
   payment_method: string;
   payment_date: string;
   reference_number?: string | null;
   proof_url?: string | null;
   notes?: string | null;
   recorded_by: string;
+  created_at: string;
+}
+
+export type PaymentTransactionStatus =
+  | 'PENDING'
+  | 'SETTLEMENT'
+  | 'CAPTURE'
+  | 'DENY'
+  | 'CANCEL'
+  | 'EXPIRE'
+  | 'FAILURE'
+  | 'REFUND';
+
+export interface PaymentTransaction {
+  id: string;
+  bill_id: string;
+  order_id: string;
+  gateway: 'MIDTRANS';
+  gross_amount: number;
+  snap_token: string | null;
+  redirect_url: string | null;
+  status: PaymentTransactionStatus;
+  payment_type: string | null;
+  transaction_time: string | null;
+  settled_at: string | null;
   created_at: string;
 }
 
